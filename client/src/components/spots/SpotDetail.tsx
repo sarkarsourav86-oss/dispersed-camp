@@ -7,6 +7,8 @@ import { WeatherWidget } from '../weather/WeatherWidget';
 import { LandRulesPanel } from '../rules/LandRulesPanel';
 import { FireRestrictionBanner } from '../rules/FireRestrictionBanner';
 import { LoadingSpinner } from '../shared/LoadingSpinner';
+import { AmenitiesList } from './AmenitiesList';
+import { useLocationDetails } from '../../hooks/useLocationDetails';
 import { formatDistance } from '../../utils/geo';
 
 interface Props {
@@ -18,6 +20,7 @@ export function SpotDetail({ spot }: Props) {
   const { savedSpots, saveSpot, removeSpot } = useTripStore();
   const isSaved = savedSpots.some((s) => s.id === spot.id);
 
+  const { data: locationDetails } = useLocationDetails(spot.lat, spot.lng);
   const { data: route, isLoading: routeLoading } = useRouting(spot.lat, spot.lng);
   const { data: weather } = useWeather(spot.lat, spot.lng);
   const { data: fire } = useFireRestrictions(spot.lat, spot.lng);
@@ -33,8 +36,20 @@ export function SpotDetail({ spot }: Props) {
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-xl font-bold text-stone-100">{spot.name}</h3>
-          <p className="text-sm text-stone-400 mt-0.5">
+          <a
+            href={`https://www.google.com/search?q=${encodeURIComponent(spot.name + ' camping' + (locationDetails?.city || locationDetails?.state ? ' near ' + [locationDetails.city, locationDetails.state].filter(Boolean).join(', ') : ''))}`}
+            target="_blank"
+            rel="noreferrer"
+            className="text-xl font-bold text-amber-400 hover:text-amber-300 underline decoration-amber-400/30 hover:decoration-amber-300"
+          >
+            {spot.name}
+          </a>
+          {locationDetails && (locationDetails.city || locationDetails.state) && (
+            <p className="text-sm text-stone-300 mt-0.5">
+              {[locationDetails.city, locationDetails.county, locationDetails.state].filter(Boolean).join(', ')}
+            </p>
+          )}
+          <p className="text-xs text-stone-500 mt-0.5">
             {spot.lat.toFixed(5)}°N, {Math.abs(spot.lng).toFixed(5)}°W
           </p>
         </div>
@@ -84,6 +99,9 @@ export function SpotDetail({ spot }: Props) {
           <p className="text-stone-500 text-sm">Route unavailable (add ORS API key)</p>
         )}
       </div>
+
+      {/* Amenities */}
+      {spot.tags && <AmenitiesList tags={spot.tags} />}
 
       {/* Weather */}
       {weather && <WeatherWidget days={weather} />}

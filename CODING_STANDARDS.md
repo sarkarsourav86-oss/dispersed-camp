@@ -77,6 +77,12 @@ If a value needs to pass through more than 2 component layers, pull it into Zust
 - Hooks that wrap React Query return the query result object directly (don't destructure inside the hook)
 - Hooks that wrap browser APIs (`useGeolocation`) manage their own side effects and write to Zustand
 
+## Icons
+
+- Use **Bootstrap Icons** (`react-bootstrap-icons`) for all icons across the app
+- Do not use emojis, inline SVGs, or other icon libraries for UI elements
+- Import icons by name: `import { Water, Fire, Wifi } from 'react-bootstrap-icons'`
+
 ## TypeScript
 
 - No `any`. Use `unknown` and narrow, or use the correct type from `src/types/index.ts`

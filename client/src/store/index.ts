@@ -7,8 +7,11 @@ interface LocationState {
   lng: number | null;
   accuracy: number | null;
   error: string | null;
+  searchLocation: { lat: number; lng: number; name: string } | null;
   setLocation: (lat: number, lng: number, accuracy: number) => void;
   setError: (error: string) => void;
+  setSearchLocation: (lat: number, lng: number, name: string) => void;
+  clearSearchLocation: () => void;
 }
 
 interface SpotsState {
@@ -67,8 +70,11 @@ export const useLocationStore = create<LocationState>((set) => ({
   lng: null,
   accuracy: null,
   error: null,
+  searchLocation: null,
   setLocation: (lat, lng, accuracy) => set({ lat, lng, accuracy, error: null }),
   setError: (error) => set({ error }),
+  setSearchLocation: (lat, lng, name) => set({ searchLocation: { lat, lng, name } }),
+  clearSearchLocation: () => set({ searchLocation: null }),
 }));
 
 export const useSpotsStore = create<SpotsState>((set) => ({

@@ -87,3 +87,16 @@ export interface LandRuleSet {
   agencyType: LandType;
   generalRules: LandRule[];
 }
+
+export interface GeocodingResult {
+  placeId: string;
+  displayName: string;
+  lat: number;
+  lng: number;
+}
+
+export interface LocationDetails {
+  city: string | null;
+  state: string | null;
+  county: string | null;
+}
