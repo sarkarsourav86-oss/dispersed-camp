@@ -1,0 +1,25 @@
+# Node
+node_modules/
+dist/
+
+# .NET
+server/bin/
+server/obj/
+
+# Sensitive config (contains API keys)
+server/appsettings.json
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.sln.docuser
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude
+.claude/

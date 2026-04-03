@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* Leaflet z-index fix so bottom sheets appear above map */
+.leaflet-pane { z-index: 400; }
+.leaflet-control { z-index: 450; }
+
+/* Safe area for iOS home indicator */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Smooth scrolling in bottom sheets */
+.overflow-y-auto {
+  -webkit-overflow-scrolling: touch;
+}
