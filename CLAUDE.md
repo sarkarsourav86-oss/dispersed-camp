@@ -43,6 +43,10 @@ Both must run simultaneously for full functionality. The Vite dev server proxies
 
 **API keys**: RIDB and OpenRouteService keys go in `server/appsettings.json`. Never put API keys in frontend code. The app works without these keys (OSM Overpass and Open-Meteo are keyless).
 
+## Icons
+
+Use **Bootstrap Icons** (`react-bootstrap-icons`) for all icons. No emojis or inline SVGs for UI elements.
+
 ## Coding Standards (from CODING_STANDARDS.md)
 
 - No `any` in TypeScript; use `unknown` and narrow, or correct types from `src/types/index.ts`

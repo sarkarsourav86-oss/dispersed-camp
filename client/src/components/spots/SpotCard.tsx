@@ -1,5 +1,6 @@
 import type { CampSpot } from '../../types';
 import { useLocationStore } from '../../store';
+import { useLocationDetails } from '../../hooks/useLocationDetails';
 import { haversineKm } from '../../utils/geo';
 
 interface Props {
@@ -15,6 +16,7 @@ const LAND_COLORS: Record<string, string> = {
 
 export function SpotCard({ spot, onClick }: Props) {
   const { lat, lng } = useLocationStore();
+  const { data: locationDetails } = useLocationDetails(spot.lat, spot.lng);
   const distKm = lat && lng ? haversineKm(lat, lng, spot.lat, spot.lng) : null;
   const distMi = distKm ? (distKm * 0.621371).toFixed(1) : null;
 
@@ -25,7 +27,20 @@ export function SpotCard({ spot, onClick }: Props) {
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="font-medium text-stone-100 truncate">{spot.name}</p>
+          <a
+            href={`https://www.google.com/search?q=${encodeURIComponent(spot.name + ' camping' + (locationDetails?.city || locationDetails?.state ? ' near ' + [locationDetails.city, locationDetails.state].filter(Boolean).join(', ') : ''))}`}
+            target="_blank"
+            rel="noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="font-medium text-amber-400 hover:text-amber-300 underline decoration-amber-400/30 truncate block"
+          >
+            {spot.name}
+          </a>
+          {locationDetails && (locationDetails.city || locationDetails.state) && (
+            <p className="text-xs text-stone-300 mt-0.5 truncate">
+              {[locationDetails.city, locationDetails.state].filter(Boolean).join(', ')}
+            </p>
+          )}
           <p className="text-xs text-stone-400 mt-0.5">
             {spot.landType !== 'unknown' ? spot.landType : 'Unknown land'}
             {' · '}

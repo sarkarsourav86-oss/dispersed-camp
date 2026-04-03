@@ -5,9 +5,13 @@ import { haversineKm } from '../utils/geo';
 import type { CampSpot } from '../types';
 
 export function useNearbySpots() {
-  const lat = useLocationStore((s) => s.lat);
-  const lng = useLocationStore((s) => s.lng);
+  const gpsLat = useLocationStore((s) => s.lat);
+  const gpsLng = useLocationStore((s) => s.lng);
+  const searchLocation = useLocationStore((s) => s.searchLocation);
   const radiusKm = useSettingsStore((s) => s.radiusKm);
+
+  const lat = searchLocation?.lat ?? gpsLat;
+  const lng = searchLocation?.lng ?? gpsLng;
 
   return useQuery<CampSpot[]>({
     queryKey: ['spots', lat?.toFixed(2), lng?.toFixed(2), radiusKm],

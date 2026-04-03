@@ -34,12 +34,14 @@ export function CampingMap({ onSpotSelect }: Props) {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const clusterRef = useRef<L.MarkerClusterGroup | null>(null);
+  const hasFlownToUser = useRef(false);
+  const userCircleRef = useRef<L.Circle | null>(null);
   const blmLayerRef = useRef<L.GeoJSON | null>(null);
   const usfsLayerRef = useRef<L.GeoJSON | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
   const topoLayerRef = useRef<L.TileLayer | null>(null);
 
-  const { lat, lng } = useLocationStore();
+  const { lat, lng, searchLocation } = useLocationStore();
   const { selectSpot } = useSpotsStore();
   const { showBLM, showUSFS, showTopoMap } = useSettingsStore();
 
@@ -96,12 +98,19 @@ export function CampingMap({ onSpotSelect }: Props) {
     return () => { map.remove(); mapRef.current = null; };
   }, []);
 
-  // Fly to user location
+  // Fly to user location on first fix only; update blue dot silently after
   useEffect(() => {
-    if (lat && lng && mapRef.current) {
-      mapRef.current.flyTo([lat, lng], 10, { duration: 1.5 });
+    if (!lat || !lng || !mapRef.current) return;
 
-      L.circle([lat, lng], {
+    if (!hasFlownToUser.current) {
+      hasFlownToUser.current = true;
+      mapRef.current.flyTo([lat, lng], 10, { duration: 1.5 });
+    }
+
+    if (userCircleRef.current) {
+      userCircleRef.current.setLatLng([lat, lng]);
+    } else {
+      userCircleRef.current = L.circle([lat, lng], {
         radius: 30,
         color: '#3b82f6',
         fillColor: '#3b82f6',
@@ -110,6 +119,13 @@ export function CampingMap({ onSpotSelect }: Props) {
       }).addTo(mapRef.current);
     }
   }, [lat, lng]);
+
+  // Fly to search location
+  useEffect(() => {
+    if (searchLocation && mapRef.current) {
+      mapRef.current.flyTo([searchLocation.lat, searchLocation.lng], 10, { duration: 1.5 });
+    }
+  }, [searchLocation]);
 
   // Topo layer toggle
   useEffect(() => {
