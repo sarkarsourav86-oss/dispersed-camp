@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { ArrowLeft, ArrowClockwise, GeoAltFill } from 'react-bootstrap-icons';
 import { CampingMap } from '../components/map/CampingMap';
 import { MapControls } from '../components/map/MapControls';
@@ -14,10 +14,10 @@ import type { CampSpot } from '../types';
 type View = 'map' | 'list' | 'detail';
 
 interface Props {
-  isActive?: boolean;
+  onResetView?: (reset: () => void) => void;
 }
 
-export function MapPage({ isActive }: Props) {
+export function MapPage({ onResetView }: Props) {
   useGeolocation();
 
   const [view, setView] = useState<View>('map');
@@ -26,13 +26,13 @@ export function MapPage({ isActive }: Props) {
   const { error: locationError } = useLocationStore();
   const { data: spots = [], isLoading, refetch } = useNearbySpots();
 
-  // Reset to map view when tab becomes active while showing list/detail
-  useEffect(() => {
-    if (isActive && view !== 'map') {
-      selectSpot(null);
-      setView('map');
-    }
-  }, [isActive]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Expose reset function to parent
+  const resetToMap = useCallback(() => {
+    selectSpot(null);
+    setView('map');
+  }, [selectSpot]);
+
+  onResetView?.(resetToMap);
 
   const handleSpotSelect = useCallback((spot: CampSpot, from: 'map' | 'list') => {
     selectSpot(spot);
