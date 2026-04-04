@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Map, HeartFill, HouseDoorFill } from 'react-bootstrap-icons';
 import { HomePage } from './pages/HomePage';
@@ -41,10 +41,13 @@ export default function App() {
     setActiveTab('find');
   }, [selectSpot]);
 
+  const mapResetRef = useRef<(() => void) | null>(null);
+
   const handleTabChange = (tab: Tab) => {
     setActiveTab(tab);
     if (tab === 'find') {
       setMapMounted(true);
+      mapResetRef.current?.();
     }
   };
 
@@ -66,7 +69,7 @@ export default function App() {
           {/* Map page — mounted on first navigation, then kept alive */}
           {mapMounted && (
             <div className={activeTab === 'find' ? 'block w-full h-full' : 'hidden'}>
-              <MapPage isActive={activeTab === 'find'} />
+              <MapPage onResetView={(reset) => { mapResetRef.current = reset; }} />
             </div>
           )}
 

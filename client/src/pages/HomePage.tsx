@@ -110,7 +110,7 @@ export function HomePage({ onNavigateToMap, onSelectSpot }: Props) {
     >
       {/* Fixed background image */}
       <div className="fixed inset-x-0 top-0 h-screen z-0 pointer-events-none">
-        <img src="/van.png" alt="" className="w-full h-full object-cover" />
+        <img src="/van.webp" alt="" className="w-full h-full object-cover" />
         <div
           className="absolute inset-0 bg-gradient-to-b from-stone-950/40 via-stone-950/60 to-stone-950"
           style={{ opacity: overlayOpacity }}
@@ -127,7 +127,7 @@ export function HomePage({ onNavigateToMap, onSelectSpot }: Props) {
           }}
         >
           <img
-            src="/logo.png"
+            src="/logo.webp"
             alt="VanLife Adventures"
             className="w-44 h-auto mx-auto mb-4"
           />

@@ -24,7 +24,7 @@ server/appsettings.json
 Thumbs.db
 
 # iOverlander data (generated + raw)
-data/
+/data/
 client/public/data/ioverlander/
 
 # Claude
