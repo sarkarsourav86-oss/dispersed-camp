@@ -1,5 +1,7 @@
 import type { CampSpot, IOverlanderCategory } from '../types';
 
+const DATA_BASE_URL = import.meta.env.VITE_DATA_URL || '/data/ioverlander';
+
 interface RawPlace {
   id: string;
   name: string;
@@ -45,7 +47,7 @@ function gridCellsForBbox(bbox: BBox): string[] {
 
 async function ensureManifest(): Promise<Set<string>> {
   if (!manifestPromise) {
-    manifestPromise = fetch('/data/ioverlander/manifest.json')
+    manifestPromise = fetch(`${DATA_BASE_URL}/manifest.json`)
       .then((res) => {
         if (!res.ok) throw new Error(`Manifest fetch failed: ${res.status}`);
         return res.json() as Promise<string[]>;
@@ -60,7 +62,7 @@ async function fetchCell(key: string, signal?: AbortSignal): Promise<RawPlace[]>
   const cached = cellCache.get(key);
   if (cached) return cached;
 
-  const res = await fetch(`/data/ioverlander/${key}.json`, { signal });
+  const res = await fetch(`${DATA_BASE_URL}/${key}.json`, { signal });
   if (!res.ok) return [];
 
   const places = (await res.json()) as RawPlace[];
