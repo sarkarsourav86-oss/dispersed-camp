@@ -26,7 +26,9 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+        globPatterns: ['**/*.{js,css,html,ico,svg}'],
+        globIgnores: ['**/van.png', '**/logo.png'],
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/[abc]\.tile\.openstreetmap\.org\/.*/i,
