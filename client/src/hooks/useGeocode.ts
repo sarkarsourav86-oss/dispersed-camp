@@ -4,7 +4,7 @@ import { geocodeSearch } from '../services/nominatim';
 export function useGeocode(query: string) {
   return useQuery({
     queryKey: ['geocode', query],
-    queryFn: () => geocodeSearch(query),
+    queryFn: ({ signal }) => geocodeSearch(query, signal),
     enabled: query.trim().length >= 2,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,

@@ -11,7 +11,7 @@ const WMO_DESCRIPTIONS: Record<number, string> = {
   95: 'Thunderstorm', 96: 'Thunderstorm + hail', 99: 'Heavy thunderstorm',
 };
 
-async function fetchWeather(lat: number, lng: number): Promise<WeatherDay[]> {
+async function fetchWeather(lat: number, lng: number, signal?: AbortSignal): Promise<WeatherDay[]> {
   const url = new URL('https://api.open-meteo.com/v1/forecast');
   url.searchParams.set('latitude', String(lat));
   url.searchParams.set('longitude', String(lng));
@@ -21,7 +21,7 @@ async function fetchWeather(lat: number, lng: number): Promise<WeatherDay[]> {
   url.searchParams.set('timezone', 'auto');
   url.searchParams.set('forecast_days', '7');
 
-  const res = await fetch(url.toString());
+  const res = await fetch(url.toString(), { signal });
   if (!res.ok) throw new Error('Weather fetch failed');
   const data = await res.json();
   const daily = data.daily;
@@ -40,7 +40,7 @@ async function fetchWeather(lat: number, lng: number): Promise<WeatherDay[]> {
 export function useWeather(lat: number | null, lng: number | null) {
   return useQuery<WeatherDay[]>({
     queryKey: ['weather', lat?.toFixed(2), lng?.toFixed(2)],
-    queryFn: () => fetchWeather(lat!, lng!),
+    queryFn: ({ signal }) => fetchWeather(lat!, lng!, signal),
     enabled: !!lat && !!lng,
     staleTime: 30 * 60 * 1000,   // 30 min
     gcTime: 60 * 60 * 1000,      // 1 hour

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-DispersedCamp is a mobile-first PWA for finding dispersed camping on BLM and National Forest land in the US. It has a React/TypeScript frontend (Vite) and a .NET 10 Minimal API backend.
+DispersedCamp is a mobile-first PWA for vanlifers and overlanders to find dispersed camping, water, dump stations, propane, mechanics, and other services. Data comes from iOverlander (static JSON, primary source), OSM Overpass, and RIDB. It covers the US and Canada. React/TypeScript frontend (Vite) with a .NET 10 Minimal API backend.
 
 ## Development Commands
 
@@ -39,9 +39,17 @@ Both must run simultaneously for full functionality. The Vite dev server proxies
 - **React Query** for all server/API data: spots, land overlays, routing, weather, fire restrictions. Hooks in `client/src/hooks/`.
 - Never put API response data in Zustand. Never manage loading/error state manually.
 
-**API proxy chain**: Frontend calls `/api/*` -> Vite proxy -> .NET backend -> external APIs (BLM GIS, USFS GIS, RIDB, OpenRouteService). OSM Overpass and Open-Meteo are called directly from the frontend (`client/src/services/osmOverpass.ts`).
+**API proxy chain**: Frontend calls `/api/*` -> Vite proxy -> .NET backend -> external APIs (BLM GIS, USFS GIS, OpenRouteService). Open-Meteo weather is called directly from the frontend.
 
-**API keys**: RIDB and OpenRouteService keys go in `server/appsettings.json`. Never put API keys in frontend code. The app works without these keys (OSM Overpass and Open-Meteo are keyless).
+**iOverlander data**: Static grid-indexed JSON files in `client/public/data/ioverlander/`. Loaded client-side by `client/src/services/iOverlander.ts` using 1-degree grid cells with in-memory caching. Categories, colors, and emojis defined in `client/src/data/iOverlanderCategories.ts`. Data is generated from iOverlander JSON exports via `scripts/convert-ioverlander.mjs`.
+
+**Refreshing iOverlander data**:
+1. Download JSON exports from https://app.ioverlander.com/countries/places_by_country (requires subscription)
+2. Place files in `data/` (gitignored)
+3. Run: `node scripts/convert-ioverlander.mjs data/file1.json data/file2.json ...`
+4. Output goes to `client/public/data/ioverlander/` (also gitignored — deploy separately)
+
+**API keys**: OpenRouteService key goes in `server/appsettings.json`. Never put API keys in frontend code. The app works without this key (iOverlander data is static, Open-Meteo is keyless).
 
 ## Icons
 

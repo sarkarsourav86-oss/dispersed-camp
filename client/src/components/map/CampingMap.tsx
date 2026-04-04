@@ -1,13 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import 'leaflet.markercluster';
-import { useLocationStore, useSpotsStore, useSettingsStore } from '../../store';
+import { useLocationStore, useSpotsStore, useSettingsStore, useMapStore } from '../../store';
 import { useNearbySpots } from '../../hooks/useNearbySpots';
 import { useLandOverlays } from '../../hooks/useLandOverlays';
-import type { CampSpot } from '../../types';
+import type { CampSpot, IOverlanderCategory } from '../../types';
+import { IOVERLANDER_CATEGORIES } from '../../data/iOverlanderCategories';
 import { LoadingSpinner } from '../shared/LoadingSpinner';
 
 // Fix default marker icon paths broken by Vite
@@ -20,11 +21,30 @@ L.Icon.Default.mergeOptions({
 
 const CAMP_ICON = L.divIcon({
   className: '',
-  html: `<div style="width:28px;height:28px;background:#d97706;border:2px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 2px 6px rgba(0,0,0,0.4)"><div style="transform:rotate(45deg);width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:14px">⛺</div></div>`,
+  html: `<div style="width:28px;height:28px;background:#d97706;border:2px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 2px 6px rgba(0,0,0,0.4)"><div style="transform:rotate(45deg);width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:14px">\u26FA</div></div>`,
   iconSize: [28, 28],
   iconAnchor: [14, 28],
   popupAnchor: [0, -30],
 });
+
+// Cache category icons so we create at most one per category
+const categoryIconCache = new Map<string, L.DivIcon>();
+
+function getCategoryIcon(category: IOverlanderCategory): L.DivIcon {
+  const cached = categoryIconCache.get(category);
+  if (cached) return cached;
+
+  const config = IOVERLANDER_CATEGORIES[category] ?? IOVERLANDER_CATEGORIES['Other'];
+  const icon = L.divIcon({
+    className: '',
+    html: `<div style="width:28px;height:28px;background:${config.color};border:2px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 2px 6px rgba(0,0,0,0.4)"><div style="transform:rotate(45deg);width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:14px">${config.emoji}</div></div>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 28],
+    popupAnchor: [0, -30],
+  });
+  categoryIconCache.set(category, icon);
+  return icon;
+}
 
 interface Props {
   onSpotSelect: (spot: CampSpot) => void;
@@ -45,7 +65,7 @@ export function CampingMap({ onSpotSelect }: Props) {
   const { selectSpot } = useSpotsStore();
   const { showBLM, showUSFS, showTopoMap } = useSettingsStore();
 
-  const [bbox, setBbox] = useState<{ west: number; south: number; east: number; north: number } | null>(null);
+  const { mapBbox: bbox, setMapBbox: setBbox } = useMapStore();
 
   const { data: spots = [], isLoading: spotsLoading } = useNearbySpots();
   const { data: land } = useLandOverlays(bbox);
@@ -141,7 +161,10 @@ export function CampingMap({ onSpotSelect }: Props) {
     cluster.clearLayers();
 
     spots.forEach((spot) => {
-      const marker = L.marker([spot.lat, spot.lng], { icon: CAMP_ICON });
+      const icon = spot.source === 'ioverlander' && spot.iOverlanderCategory
+        ? getCategoryIcon(spot.iOverlanderCategory)
+        : CAMP_ICON;
+      const marker = L.marker([spot.lat, spot.lng], { icon });
       marker.bindTooltip(spot.name, { permanent: false, direction: 'top' });
       marker.on('click', () => {
         selectSpot(spot);

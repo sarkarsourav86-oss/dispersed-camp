@@ -80,6 +80,15 @@ export default defineConfig({
               expiration: { maxEntries: 200, maxAgeSeconds: 6 * 60 * 60 },
             },
           },
+          {
+            urlPattern: /\/data\/ioverlander\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'ioverlander-data',
+              expiration: { maxEntries: 1200, maxAgeSeconds: 30 * 24 * 60 * 60 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
         ],
       },
     }),

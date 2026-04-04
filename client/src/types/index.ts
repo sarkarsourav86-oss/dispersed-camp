@@ -1,19 +1,17 @@
-export type Season = 'spring' | 'summer' | 'fall' | 'winter';
-export type TerrainType = 'desert' | 'mountain' | 'forest' | 'coastal';
-export type TripDuration = 'overnight' | 'weekend' | 'week' | 'extended';
 export type LandType = 'BLM' | 'USFS' | 'unknown';
-export type GearCategory =
-  | 'shelter'
-  | 'sleep'
-  | 'cooking'
-  | 'water'
-  | 'navigation'
-  | 'safety'
-  | 'clothing'
-  | 'fire'
-  | 'hygiene'
-  | 'vehicle'
-  | 'leave-no-trace';
+export type IOverlanderCategory =
+  | 'Campground'
+  | 'Informal Campsite'
+  | 'Wild Camping'
+  | 'Water'
+  | 'Sanitation Dump Station'
+  | 'Propane'
+  | 'Mechanic'
+  | 'WiFi'
+  | 'Shower'
+  | 'Restaurant'
+  | 'Parking'
+  | 'Other';
 
 export interface CampSpot {
   id: string;
@@ -21,9 +19,12 @@ export interface CampSpot {
   lat: number;
   lng: number;
   landType: LandType;
-  source: 'osm' | 'ridb';
+  source: 'osm' | 'ridb' | 'ioverlander';
   description?: string;
   website?: string;
+  imageUrl?: string;
+  iOverlanderCategory?: IOverlanderCategory;
+  dateVerified?: string;
   tags?: Record<string, string>;
 }
 
@@ -51,29 +52,6 @@ export interface WeatherDay {
   description: string;
 }
 
-export interface GearItem {
-  id: string;
-  name: string;
-  category: GearCategory;
-  essential: boolean;
-  conditions: {
-    seasons?: Season[];
-    terrain?: TerrainType[];
-    minDays?: number;
-    hasWaterNearby?: boolean;
-    fireRestrictionsActive?: boolean;
-  };
-  notes?: string;
-}
-
-export interface GearConfig {
-  season: Season;
-  duration: TripDuration;
-  terrain: TerrainType;
-  groupSize: number;
-  hasWaterNearby: boolean;
-  fireRestrictionsActive: boolean;
-}
 
 export interface LandRule {
   id: string;
@@ -99,4 +77,23 @@ export interface LocationDetails {
   city: string | null;
   state: string | null;
   county: string | null;
+}
+
+export type VanType = 'sprinter' | 'transit' | 'promaster' | 'minivan' | 'suv' | 'truck-camper' | 'class-b' | 'class-c' | 'other';
+export type Clearance = 'low' | 'standard' | 'high';
+export type Drivetrain = '2wd' | 'awd' | '4wd';
+
+export interface VanProfile {
+  vanType: VanType;
+  length: number;
+  clearance: Clearance;
+  drivetrain: Drivetrain;
+  waterTankGallons: number;
+  fuelTankGallons: number;
+  mpg: number;
+  peopleCount: number;
+  hasPet: boolean;
+  hasSolar: boolean;
+  hasGenerator: boolean;
+  needsInternet: boolean;
 }

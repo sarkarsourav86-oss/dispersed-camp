@@ -1,15 +1,20 @@
+import { TruckFront, GeoAlt, StarFill, Magic } from 'react-bootstrap-icons';
+import { useTripPlan } from '../../hooks/useTripPlan';
+import { TripPlanCard } from './TripPlanCard';
+import { LoadingSpinner as Spinner } from '../shared/LoadingSpinner';
 import type { CampSpot } from '../../types';
 import { useRouting } from '../../hooks/useRouting';
 import { useWeather } from '../../hooks/useWeather';
 import { useFireRestrictions } from '../../hooks/useFireRestrictions';
-import { useLocationStore, useTripStore } from '../../store';
+import { useState } from 'react';
+import { useLocationStore, useTripStore, useVanStore } from '../../store';
+import { VanProfileSetup } from '../van/VanProfileSetup';
 import { WeatherWidget } from '../weather/WeatherWidget';
-import { LandRulesPanel } from '../rules/LandRulesPanel';
 import { FireRestrictionBanner } from '../rules/FireRestrictionBanner';
 import { LoadingSpinner } from '../shared/LoadingSpinner';
 import { AmenitiesList } from './AmenitiesList';
 import { useLocationDetails } from '../../hooks/useLocationDetails';
-import { formatDistance } from '../../utils/geo';
+import { getCategoryConfig } from '../../data/iOverlanderCategories';
 
 interface Props {
   spot: CampSpot;
@@ -18,6 +23,8 @@ interface Props {
 export function SpotDetail({ spot }: Props) {
   const { lat, lng } = useLocationStore();
   const { savedSpots, saveSpot, removeSpot } = useTripStore();
+  const vanProfile = useVanStore((s) => s.profile);
+  const [showVanSetup, setShowVanSetup] = useState(false);
   const isSaved = savedSpots.some((s) => s.id === spot.id);
 
   const { data: locationDetails } = useLocationDetails(spot.lat, spot.lng);
@@ -27,132 +34,298 @@ export function SpotDetail({ spot }: Props) {
 
   const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${spot.lat},${spot.lng}&travelmode=driving`;
   const appleMapsUrl = `maps://maps.apple.com/?daddr=${spot.lat},${spot.lng}&dirflg=d`;
+  const earthUrl = `https://earth.google.com/web/search/${spot.lat},${spot.lng}`;
+
+  const tripPlan = useTripPlan();
+
+  const categoryConfig = spot.source === 'ioverlander' && spot.iOverlanderCategory
+    ? getCategoryConfig(spot.iOverlanderCategory)
+    : null;
+
+  const handlePlanTrip = () => {
+    if (!vanProfile) {
+      setShowVanSetup(true);
+      return;
+    }
+
+    const weatherSummary = weather
+      ? `${weather[0].description}, ${weather[0].tempMax}°/${weather[0].tempMin}°F, ${weather[0].windSpeed} mph wind`
+      : undefined;
+    const fireInfo = fire?.restrictionsActive
+      ? `${fire.level} restrictions: ${fire.message ?? 'Active'}`
+      : undefined;
+
+    tripPlan.mutate({
+      name: spot.name,
+      lat: spot.lat,
+      lng: spot.lng,
+      category: spot.iOverlanderCategory,
+      description: spot.description,
+      weatherSummary,
+      fireRestrictions: fireInfo,
+      driveTime: route?.durationFormatted,
+      distanceMiles: route?.distanceMiles,
+      vanType: vanProfile.vanType,
+      lengthFt: vanProfile.length,
+      clearance: vanProfile.clearance,
+      drivetrain: vanProfile.drivetrain,
+      waterTankGal: vanProfile.waterTankGallons,
+      fuelTankGal: vanProfile.fuelTankGallons,
+      mpg: vanProfile.mpg,
+      peopleCount: vanProfile.peopleCount,
+      hasPet: vanProfile.hasPet,
+      hasSolar: vanProfile.hasSolar,
+      hasGenerator: vanProfile.hasGenerator,
+      needsInternet: vanProfile.needsInternet,
+    });
+  };
 
   return (
     <div className="space-y-4">
-      {/* Fire restriction alert */}
-      {fire?.restrictionsActive && <FireRestrictionBanner restriction={fire} />}
-
-      {/* Header */}
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <a
-            href={`https://www.google.com/search?q=${encodeURIComponent(spot.name + ' camping' + (locationDetails?.city || locationDetails?.state ? ' near ' + [locationDetails.city, locationDetails.state].filter(Boolean).join(', ') : ''))}`}
-            target="_blank"
-            rel="noreferrer"
-            className="text-xl font-bold text-amber-400 hover:text-amber-300 underline decoration-amber-400/30 hover:decoration-amber-300"
+      {/* Hero section */}
+      <div className="px-4 pt-4 pb-3">
+        <div className="flex items-start gap-3">
+          {/* Category icon */}
+          <div
+            className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
+            style={{ backgroundColor: categoryConfig ? `${categoryConfig.color}20` : '#d9770620' }}
           >
-            {spot.name}
-          </a>
-          {locationDetails && (locationDetails.city || locationDetails.state) && (
-            <p className="text-sm text-stone-300 mt-0.5">
-              {[locationDetails.city, locationDetails.county, locationDetails.state].filter(Boolean).join(', ')}
-            </p>
-          )}
-          <p className="text-xs text-stone-500 mt-0.5">
-            {spot.lat.toFixed(5)}°N, {Math.abs(spot.lng).toFixed(5)}°W
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => isSaved ? removeSpot(spot.id) : saveSpot(spot)}
-            aria-label={isSaved ? 'Remove from saved' : 'Save spot'}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              isSaved
-                ? 'bg-amber-600 text-amber-950 hover:bg-amber-700'
-                : 'bg-stone-700 text-stone-200 hover:bg-stone-600'
-            }`}
-          >
-            {isSaved ? '★ Saved' : '☆ Save'}
-          </button>
-        </div>
-      </div>
-
-      {/* Land type badge */}
-      <LandTypeBadge landType={spot.landType} />
-
-      {/* Drive time */}
-      <div className="bg-stone-800 rounded-xl p-4">
-        <p className="text-xs text-stone-400 uppercase tracking-wide mb-2 font-semibold">Drive from your location</p>
-        {!lat || !lng ? (
-          <p className="text-stone-500 text-sm">Enable location to see drive time</p>
-        ) : routeLoading ? (
-          <div className="flex items-center gap-2 text-stone-400 text-sm"><LoadingSpinner size="sm" /> Calculating…</div>
-        ) : route ? (
-          <div className="flex items-center justify-between">
-            <div>
-              <span className="text-2xl font-bold text-amber-400">{route.durationFormatted}</span>
-              <span className="text-stone-400 text-sm ml-2">{formatDistance(route.distanceMiles)}</span>
-            </div>
-            <div className="flex gap-2 flex-wrap justify-end">
-              <a href={mapsUrl} target="_blank" rel="noreferrer"
-                className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg">
-                Google Maps
-              </a>
-              <a href={appleMapsUrl}
-                className="text-xs bg-stone-600 hover:bg-stone-500 text-white px-3 py-1.5 rounded-lg">
-                Apple Maps
-              </a>
-            </div>
+            {categoryConfig?.emoji ?? '\u26FA'}
           </div>
-        ) : (
-          <p className="text-stone-500 text-sm">Route unavailable (add ORS API key)</p>
+
+          {/* Info */}
+          <div className="flex-1 min-w-0">
+            <a
+              href={`https://www.google.com/search?q=${encodeURIComponent(spot.name + ' camping' + (locationDetails?.city || locationDetails?.state ? ' near ' + [locationDetails.city, locationDetails.state].filter(Boolean).join(', ') : ''))}`}
+              target="_blank"
+              rel="noreferrer"
+              className="text-lg font-bold text-amber-400 hover:text-amber-300 underline decoration-amber-400/30"
+            >
+              {spot.name}
+            </a>
+            {locationDetails && (locationDetails.city || locationDetails.state) && (
+              <p className="text-sm text-stone-400">
+                {[locationDetails.city, locationDetails.state].filter(Boolean).join(', ')}
+              </p>
+            )}
+            <p className="text-xs text-stone-500">
+              {spot.lat.toFixed(4)}{'\u00B0'} N, {Math.abs(spot.lng).toFixed(4)}{'\u00B0'} W
+            </p>
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-2 flex-shrink-0">
+            <button
+              onClick={handlePlanTrip}
+              disabled={tripPlan.isPending}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-amber-500 text-stone-950 hover:bg-amber-600 transition-colors disabled:opacity-50"
+            >
+              {tripPlan.isPending ? <Spinner size="sm" /> : <Magic size={12} />}
+              Plan
+            </button>
+            <button
+              onClick={() => isSaved ? removeSpot(spot.id) : saveSpot(spot)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                isSaved
+                  ? 'bg-amber-500 text-stone-950'
+                  : 'bg-stone-800 text-stone-200 hover:bg-stone-700'
+              }`}
+            >
+              <StarFill size={12} />
+              {isSaved ? 'Saved' : 'Save'}
+            </button>
+          </div>
+        </div>
+
+        {/* Category + verified */}
+        {categoryConfig && (
+          <div className="flex items-center gap-2 mt-2 ml-15">
+            <span
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium"
+              style={{ backgroundColor: `${categoryConfig.color}20`, color: categoryConfig.color }}
+            >
+              {categoryConfig.emoji} {categoryConfig.label}
+            </span>
+            {spot.dateVerified && (
+              <span className="text-[11px] text-stone-500">Verified {spot.dateVerified}</span>
+            )}
+          </div>
         )}
       </div>
 
-      {/* Amenities */}
-      {spot.tags && <AmenitiesList tags={spot.tags} />}
-
-      {/* Weather */}
-      {weather && <WeatherWidget days={weather} />}
-
-      {/* Description */}
-      {spot.description && (
-        <div className="bg-stone-800 rounded-xl p-4">
-          <p className="text-xs text-stone-400 uppercase tracking-wide mb-2 font-semibold">About</p>
-          <p className="text-stone-300 text-sm leading-relaxed"
-            dangerouslySetInnerHTML={{ __html: spot.description.replace(/<[^>]*>/g, '') }}
-          />
+      {/* Fire restriction alert */}
+      {fire?.restrictionsActive && (
+        <div className="px-4">
+          <FireRestrictionBanner restriction={fire} />
         </div>
       )}
 
-      {/* Land rules */}
-      <LandRulesPanel landType={spot.landType} />
+      {/* Drive time + map links */}
+      <div className="px-4">
+        <div className="bg-stone-900 rounded-xl p-4 border border-stone-800 space-y-3">
+          {/* Drive time */}
+          {!lat || !lng ? (
+            <p className="text-stone-500 text-sm flex items-center gap-2">
+              <GeoAlt size={16} /> Enable location to see drive time
+            </p>
+          ) : routeLoading ? (
+            <div className="flex items-center gap-2 text-stone-400 text-sm">
+              <LoadingSpinner size="sm" /> Calculating route...
+            </div>
+          ) : route ? (
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-stone-800 rounded-lg flex items-center justify-center">
+                <TruckFront size={18} className="text-amber-400" />
+              </div>
+              <div>
+                <p className="text-lg font-bold text-stone-100">{route.durationFormatted}</p>
+                <p className="text-xs text-stone-400">from you</p>
+              </div>
+            </div>
+          ) : null}
+
+          {/* Map links — always visible */}
+          <div className="flex gap-2 flex-wrap">
+            <a href={mapsUrl} target="_blank" rel="noreferrer"
+              className="flex items-center gap-1.5 text-xs bg-stone-800 hover:bg-stone-700 text-stone-200 px-3 py-2 rounded-lg border border-stone-700">
+              <GeoAlt size={12} className="text-green-400" />
+              Google Maps
+            </a>
+            <a href={appleMapsUrl}
+              className="flex items-center gap-1.5 text-xs bg-stone-800 hover:bg-stone-700 text-stone-200 px-3 py-2 rounded-lg border border-stone-700">
+              Apple Maps
+            </a>
+            <a href={earthUrl} target="_blank" rel="noreferrer"
+              className="flex items-center gap-1.5 text-xs bg-stone-800 hover:bg-stone-700 text-stone-200 px-3 py-2 rounded-lg border border-stone-700">
+              <GeoAlt size={12} className="text-blue-400" />
+              Google Earth
+            </a>
+          </div>
+        </div>
+      </div>
+
+      {/* Amenities */}
+      {spot.tags && (
+        <div className="px-4">
+          <AmenitiesList tags={spot.tags} />
+        </div>
+      )}
+
+      {/* Weather */}
+      {weather && (
+        <div className="px-4">
+          <WeatherWidget days={weather} />
+        </div>
+      )}
+
+      {/* About */}
+      {spot.description && (
+        <div className="px-4">
+          <div className="bg-stone-900 rounded-xl p-4 border border-stone-800">
+            <p className="text-xs text-stone-400 uppercase tracking-wide mb-2 font-semibold">About</p>
+            <p className="text-stone-300 text-sm leading-relaxed"
+              dangerouslySetInnerHTML={{ __html: spot.description.replace(/<[^>]*>/g, '') }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Tips */}
+      {spot.description && (
+        <div className="px-4">
+          <SpotTips description={spot.description} />
+        </div>
+      )}
+
+      {/* Van Profile Setup */}
+      {showVanSetup && (
+        <div className="px-4">
+          <VanProfileSetup onComplete={() => { setShowVanSetup(false); handlePlanTrip(); }} />
+        </div>
+      )}
+
+      {/* AI Trip Plan */}
+      {tripPlan.isPending && (
+        <div className="px-4">
+          <div className="bg-stone-900 rounded-xl border border-stone-800 p-6 flex items-center justify-center gap-3 text-stone-400 text-sm">
+            <LoadingSpinner size="sm" /> Generating your vanlife trip plan...
+          </div>
+        </div>
+      )}
+      {tripPlan.data && (
+        <div className="px-4">
+          <TripPlanCard plan={tripPlan.data} />
+        </div>
+      )}
+      {tripPlan.isError && (
+        <div className="px-4">
+          <div className="bg-red-900/30 rounded-xl border border-red-800/50 p-4 text-sm text-red-300">
+            Failed to generate trip plan. Check that OPENAI_API_KEY is configured.
+          </div>
+        </div>
+      )}
 
       {/* Links */}
-      <div className="flex gap-3 pt-1">
+      <div className="flex gap-3 px-4 pb-6">
         {spot.website && (
           <a href={spot.website} target="_blank" rel="noreferrer"
             className="text-sm text-amber-400 hover:text-amber-300 underline">
-            Official page ↗
+            Official page
           </a>
         )}
-        <a
-          href={`https://www.blm.gov/office-finder?address=${spot.lat},${spot.lng}`}
-          target="_blank" rel="noreferrer"
-          className="text-sm text-amber-400 hover:text-amber-300 underline"
-        >
-          Find local BLM office ↗
-        </a>
       </div>
     </div>
   );
 }
 
-function LandTypeBadge({ landType }: { landType: CampSpot['landType'] }) {
-  const styles: Record<string, string> = {
-    BLM: 'bg-amber-900/50 text-amber-300 border border-amber-700',
-    USFS: 'bg-green-900/50 text-green-300 border border-green-700',
-    unknown: 'bg-stone-700 text-stone-300 border border-stone-600',
-  };
-  const labels: Record<string, string> = {
-    BLM: '🟠 BLM Public Land',
-    USFS: '🟢 National Forest',
-    unknown: '❓ Land type unknown',
-  };
+interface TipMatch {
+  icon: string;
+  label: string;
+  pattern: RegExp;
+}
+
+const TIP_PATTERNS: TipMatch[] = [
+  { icon: '\uD83D\uDCB0', label: 'Price', pattern: /price[:\s]*([^\n.]+)/i },
+  { icon: '\uD83D\uDCB0', label: 'Price', pattern: /\b(free|no fee|\$\d+)/i },
+  { icon: '\uD83D\uDE97', label: 'Road', pattern: /(2wd|4wd|4x4|dirt road|gravel|paved|rutted|rough road)[^.\n]*/i },
+  { icon: '\uD83D\uDCF6', label: 'Cell signal', pattern: /(cell signal|verizon|t-mobile|at&t|no signal|weak signal|no service|good signal|5g|lte)[^.\n]*/i },
+  { icon: '\uD83D\uDD07', label: 'Noise', pattern: /(quiet|noisy|loud|highway noise|traffic noise|peaceful|silent)[^.\n]*/i },
+  { icon: '\uD83D\uDCA7', label: 'Water', pattern: /(potable water|drinking water|water spigot|no water|water available|fresh water)[^.\n]*/i },
+  { icon: '\uD83D\uDD25', label: 'Fire', pattern: /(fire pit|fire ring|campfire|no fires|fire ban|firewood)[^.\n]*/i },
+  { icon: '\uD83D\uDE8C', label: 'Big rigs', pattern: /(big rig|large rv|no big rig|small vehicles only|room for)[^.\n]*/i },
+  { icon: '\u26FA', label: 'Camping', pattern: /(tent friendly|tent camping|no tents|tent sites)[^.\n]*/i },
+  { icon: '\uD83D\uDEBF', label: 'Showers', pattern: /(hot shower|cold shower|showers?( available| cost| free))[^.\n]*/i },
+];
+
+function SpotTips({ description }: { description: string }) {
+  const tips: { icon: string; label: string; text: string }[] = [];
+  const seenLabels = new Set<string>();
+
+  for (const { icon, label, pattern } of TIP_PATTERNS) {
+    if (seenLabels.has(label)) continue;
+    const match = description.match(pattern);
+    if (match) {
+      seenLabels.add(label);
+      tips.push({ icon, label, text: match[0].trim() });
+    }
+  }
+
+  if (tips.length === 0) return null;
+
   return (
-    <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${styles[landType]}`}>
-      {labels[landType]}
-    </span>
+    <div className="bg-stone-900 rounded-xl p-4 border border-stone-800">
+      <p className="text-xs text-stone-400 uppercase tracking-wide mb-3 font-semibold">Tips from visitors</p>
+      <div className="space-y-2.5">
+        {tips.map((tip) => (
+          <div key={tip.label} className="flex items-start gap-2.5 text-sm">
+            <span className="flex-shrink-0 mt-0.5">{tip.icon}</span>
+            <div>
+              <span className="text-stone-400 font-medium">{tip.label}: </span>
+              <span className="text-stone-300">{tip.text}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

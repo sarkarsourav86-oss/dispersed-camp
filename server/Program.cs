@@ -8,9 +8,9 @@ builder.Services.AddHttpClient();
 
 builder.Services.AddScoped<BlmGisService>();
 builder.Services.AddScoped<UsfsGisService>();
-builder.Services.AddScoped<RidbService>();
 builder.Services.AddScoped<OpenRouteService>();
 builder.Services.AddScoped<FireRestrictionService>();
+builder.Services.AddScoped<OpenAiService>();
 
 builder.Services.AddCors(options =>
 {
@@ -34,5 +34,6 @@ app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = Dat
 app.MapLandRoutes();
 app.MapRoutingRoutes();
 app.MapFireRoutes();
+app.MapTripPlanRoutes();
 
 app.Run();
