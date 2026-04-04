@@ -5,7 +5,7 @@ import type { FireRestrictionResult } from '../types';
 export function useFireRestrictions(lat: number | null, lng: number | null) {
   return useQuery<FireRestrictionResult>({
     queryKey: ['fire', lat?.toFixed(1), lng?.toFixed(1)],
-    queryFn: () => fetchFireRestrictions(lat!, lng!),
+    queryFn: ({ signal }) => fetchFireRestrictions(lat!, lng!, signal),
     enabled: !!lat && !!lng,
     staleTime: 4 * 60 * 60 * 1000,   // 4 hours
     gcTime: 8 * 60 * 60 * 1000,

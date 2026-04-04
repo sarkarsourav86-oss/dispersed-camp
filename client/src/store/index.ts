@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { CampSpot, GearConfig, FireRestrictionResult } from '../types';
+import type { CampSpot, FireRestrictionResult, IOverlanderCategory, VanProfile } from '../types';
 
 interface LocationState {
   lat: number | null;
@@ -23,23 +23,29 @@ interface SpotsState {
   setFireRestriction: (r: FireRestrictionResult) => void;
 }
 
+interface BoundingBox {
+  west: number;
+  south: number;
+  east: number;
+  north: number;
+}
+
+interface MapState {
+  mapBbox: BoundingBox | null;
+  setMapBbox: (bbox: BoundingBox) => void;
+}
+
 interface SettingsState {
-  radiusKm: number;
   showBLM: boolean;
   showUSFS: boolean;
   showTopoMap: boolean;
-  setRadius: (r: number) => void;
+  showIOverlander: boolean;
+  iOverlanderCategories: Record<IOverlanderCategory, boolean>;
   toggleBLM: () => void;
   toggleUSFS: () => void;
   toggleTopo: () => void;
-}
-
-interface GearState {
-  config: GearConfig;
-  checkedItems: string[];
-  setConfig: (c: Partial<GearConfig>) => void;
-  toggleItem: (id: string) => void;
-  resetChecked: () => void;
+  toggleIOverlander: () => void;
+  toggleIOverlanderCategory: (cat: IOverlanderCategory) => void;
 }
 
 interface TripState {
@@ -48,22 +54,6 @@ interface TripState {
   removeSpot: (id: string) => void;
 }
 
-const defaultGearConfig: GearConfig = {
-  season: getSeason(),
-  duration: 'weekend',
-  terrain: 'forest',
-  groupSize: 2,
-  hasWaterNearby: false,
-  fireRestrictionsActive: false,
-};
-
-function getSeason(): GearConfig['season'] {
-  const month = new Date().getMonth();
-  if (month >= 2 && month <= 4) return 'spring';
-  if (month >= 5 && month <= 7) return 'summer';
-  if (month >= 8 && month <= 10) return 'fall';
-  return 'winter';
-}
 
 export const useLocationStore = create<LocationState>((set) => ({
   lat: null,
@@ -86,39 +76,60 @@ export const useSpotsStore = create<SpotsState>((set) => ({
   setFireRestriction: (fireRestriction) => set({ fireRestriction }),
 }));
 
+export const useMapStore = create<MapState>((set) => ({
+  mapBbox: null,
+  setMapBbox: (mapBbox) => set({ mapBbox }),
+}));
+
+const defaultIOverlanderCategories: Record<IOverlanderCategory, boolean> = {
+  'Campground': true,
+  'Informal Campsite': true,
+  'Wild Camping': true,
+  'Water': true,
+  'Sanitation Dump Station': true,
+  'Propane': true,
+  'Mechanic': true,
+  'WiFi': true,
+  'Shower': true,
+  'Restaurant': true,
+  'Parking': true,
+  'Other': true,
+};
+
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
-      radiusKm: 50,
       showBLM: true,
       showUSFS: true,
       showTopoMap: false,
-      setRadius: (radiusKm) => set({ radiusKm }),
+      showIOverlander: true,
+      iOverlanderCategories: { ...defaultIOverlanderCategories },
       toggleBLM: () => set((s) => ({ showBLM: !s.showBLM })),
       toggleUSFS: () => set((s) => ({ showUSFS: !s.showUSFS })),
       toggleTopo: () => set((s) => ({ showTopoMap: !s.showTopoMap })),
+      toggleIOverlander: () => set((s) => ({ showIOverlander: !s.showIOverlander })),
+      toggleIOverlanderCategory: (cat) =>
+        set((s) => ({
+          iOverlanderCategories: {
+            ...s.iOverlanderCategories,
+            [cat]: !s.iOverlanderCategories[cat],
+          },
+        })),
     }),
-    { name: 'dc-settings' }
+    {
+      name: 'dc-settings',
+      merge: (persisted, current) => ({
+        ...current,
+        ...(persisted as Partial<SettingsState>),
+        iOverlanderCategories: {
+          ...defaultIOverlanderCategories,
+          ...((persisted as Partial<SettingsState>)?.iOverlanderCategories ?? {}),
+        },
+      }),
+    }
   )
 );
 
-export const useGearStore = create<GearState>()(
-  persist(
-    (set) => ({
-      config: defaultGearConfig,
-      checkedItems: [],
-      setConfig: (c) => set((s) => ({ config: { ...s.config, ...c } })),
-      toggleItem: (id) =>
-        set((s) => ({
-          checkedItems: s.checkedItems.includes(id)
-            ? s.checkedItems.filter((i) => i !== id)
-            : [...s.checkedItems, id],
-        })),
-      resetChecked: () => set({ checkedItems: [] }),
-    }),
-    { name: 'dc-gear' }
-  )
-);
 
 export const useTripStore = create<TripState>()(
   persist(
@@ -133,5 +144,20 @@ export const useTripStore = create<TripState>()(
       removeSpot: (id) => set((s) => ({ savedSpots: s.savedSpots.filter((x) => x.id !== id) })),
     }),
     { name: 'dc-trip' }
+  )
+);
+
+interface VanState {
+  profile: VanProfile | null;
+  setProfile: (profile: VanProfile) => void;
+}
+
+export const useVanStore = create<VanState>()(
+  persist(
+    (set) => ({
+      profile: null,
+      setProfile: (profile) => set({ profile }),
+    }),
+    { name: 'dc-van-profile' }
   )
 );

@@ -21,5 +21,9 @@ server/appsettings.json
 .DS_Store
 Thumbs.db
 
+# iOverlander data (generated + raw)
+data/
+client/public/data/ioverlander/
+
 # Claude
 .claude/

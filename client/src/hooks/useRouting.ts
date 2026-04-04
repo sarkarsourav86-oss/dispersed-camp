@@ -9,7 +9,7 @@ export function useRouting(toLat: number | null, toLng: number | null) {
 
   return useQuery<RouteResult>({
     queryKey: ['route', fromLat?.toFixed(3), fromLng?.toFixed(3), toLat?.toFixed(3), toLng?.toFixed(3)],
-    queryFn: () => fetchRoute(fromLat!, fromLng!, toLat!, toLng!),
+    queryFn: ({ signal }) => fetchRoute(fromLat!, fromLng!, toLat!, toLng!, signal),
     enabled: !!fromLat && !!fromLng && !!toLat && !!toLng,
     staleTime: 6 * 60 * 60 * 1000,   // 6 hours
     gcTime: 24 * 60 * 60 * 1000,     // 24 hours
