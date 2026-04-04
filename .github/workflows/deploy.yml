@@ -83,6 +83,7 @@ jobs:
         working-directory: client
         env:
           VITE_API_URL: https://dispersed-camp-api.azurewebsites.net/api
+          VITE_DATA_URL: https://dispersedcampdata.blob.core.windows.net/ioverlander
 
       - name: Copy Static Web Apps config to build output
         run: cp client/staticwebapp.config.json client/dist/
