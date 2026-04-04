@@ -1,9 +1,10 @@
 using Microsoft.Extensions.Caching.Memory;
 using System.Text.Json;
+using server.Services.Interfaces;
 
 namespace server.Services;
 
-public class UsfsGisService(HttpClient http, IMemoryCache cache, ILogger<UsfsGisService> logger)
+public class UsfsGisService(HttpClient http, IMemoryCache cache, ILogger<UsfsGisService> logger) : IUsfsGisService
 {
     // USFS Proclaimed Forests / National Forest System boundaries
     private const string BaseUrl =

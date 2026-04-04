@@ -66,7 +66,7 @@ export default function App() {
           {/* Map page — mounted on first navigation, then kept alive */}
           {mapMounted && (
             <div className={activeTab === 'find' ? 'block w-full h-full' : 'hidden'}>
-              <MapPage />
+              <MapPage isActive={activeTab === 'find'} />
             </div>
           )}
 

@@ -15,6 +15,8 @@ npm install          # install dependencies
 npm run dev          # dev server on http://localhost:5173 (proxies /api/* to :5000)
 npm run build        # tsc -b && vite build
 npm run lint         # eslint
+npm run test         # vitest run (single run)
+npm run test:watch   # vitest (watch mode)
 npm run preview      # preview production build
 ```
 
@@ -23,6 +25,7 @@ npm run preview      # preview production build
 cd server
 dotnet run           # runs on http://localhost:5000
 dotnet build         # build only
+dotnet test          # run from server.Tests/
 dotnet publish -c Release  # production build
 ```
 
@@ -32,7 +35,7 @@ Both must run simultaneously for full functionality. The Vite dev server proxies
 
 **Frontend**: React 19 + TypeScript + Vite 8 + Tailwind CSS v4. PWA via vite-plugin-pwa (Workbox).
 
-**Backend**: .NET 10 Minimal API. One static class per route group in `server/Routes/` (LandRoutes, RoutingRoutes, FireRoutes). One service class per external API in `server/Services/`. All services use `IMemoryCache` and are registered as scoped via DI.
+**Backend**: .NET 10 Minimal API. One static class per route group in `server/Routes/` (LandRoutes, RoutingRoutes, FireRoutes). One service class per external API in `server/Services/`, each implementing an interface from `server/Services/Interfaces/`. All services use `IMemoryCache` and are registered as scoped via DI using interface-to-implementation pairs (`AddScoped<IXxx, Xxx>()`).
 
 **State management** (strict separation):
 - **Zustand** for client-only/UI state: location, selected spot, map settings, gear checklist, saved trips. Stores are in `client/src/store/index.ts` (single file, all stores).
@@ -67,6 +70,7 @@ Use **Bootstrap Icons** (`react-bootstrap-icons`) for all icons. No emojis or in
 - Cache keys must include all query parameters
 - Git branches: `feature/<short-name>`, `fix/<short-name>`
 - Commit messages: imperative mood, describe what and why
+- Every new backend service, API endpoint, or frontend component must include unit tests
 
 ## React Query Configuration Conventions
 

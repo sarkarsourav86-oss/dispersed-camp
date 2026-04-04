@@ -5,6 +5,8 @@ dist/
 # .NET
 server/bin/
 server/obj/
+server.Tests/bin/
+server.Tests/obj/
 
 # Sensitive config (contains API keys)
 server/appsettings.json

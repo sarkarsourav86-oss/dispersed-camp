@@ -1,16 +1,17 @@
 using server.Routes;
 using server.Services;
+using server.Services.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddMemoryCache();
 builder.Services.AddHttpClient();
 
-builder.Services.AddScoped<BlmGisService>();
-builder.Services.AddScoped<UsfsGisService>();
-builder.Services.AddScoped<OpenRouteService>();
-builder.Services.AddScoped<FireRestrictionService>();
-builder.Services.AddScoped<OpenAiService>();
+builder.Services.AddScoped<IBlmGisService, BlmGisService>();
+builder.Services.AddScoped<IUsfsGisService, UsfsGisService>();
+builder.Services.AddScoped<IOpenRouteService, OpenRouteService>();
+builder.Services.AddScoped<IFireRestrictionService, FireRestrictionService>();
+builder.Services.AddScoped<IOpenAiService, OpenAiService>();
 
 builder.Services.AddCors(options =>
 {

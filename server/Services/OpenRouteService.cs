@@ -1,10 +1,11 @@
 using Microsoft.Extensions.Caching.Memory;
 using System.Text.Json;
 using server.Models;
+using server.Services.Interfaces;
 
 namespace server.Services;
 
-public class OpenRouteService(HttpClient http, IMemoryCache cache, IConfiguration config, ILogger<OpenRouteService> logger)
+public class OpenRouteService(HttpClient http, IMemoryCache cache, IConfiguration config, ILogger<OpenRouteService> logger) : IOpenRouteService
 {
     private const string BaseUrl = "https://api.openrouteservice.org/v2";
 
