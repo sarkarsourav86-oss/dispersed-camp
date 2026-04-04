@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Map, HeartFill } from 'react-bootstrap-icons';
+import { Map, HeartFill, HouseDoorFill } from 'react-bootstrap-icons';
+import { HomePage } from './pages/HomePage';
 import { MapPage } from './pages/MapPage';
 import { TripPlannerPage } from './pages/TripPlannerPage';
 import { OfflineBanner } from './components/shared/OfflineBanner';
+import { useSpotsStore } from './store';
+import type { CampSpot } from './types';
 import type { ComponentType } from 'react';
 
 const queryClient = new QueryClient({
@@ -14,15 +17,36 @@ const queryClient = new QueryClient({
   },
 });
 
-type Tab = 'map' | 'trip';
+type Tab = 'home' | 'find' | 'trip';
 
 const TABS: { id: Tab; label: string; Icon: ComponentType<{ size?: number; className?: string }> }[] = [
-  { id: 'map', label: 'Find Spots', Icon: Map },
+  { id: 'home', label: 'Home', Icon: HouseDoorFill },
+  { id: 'find', label: 'Find Spots', Icon: Map },
   { id: 'trip', label: 'My Trip', Icon: HeartFill },
 ];
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<Tab>('map');
+  const [activeTab, setActiveTab] = useState<Tab>('home');
+  const [mapMounted, setMapMounted] = useState(false);
+  const { selectSpot } = useSpotsStore();
+
+  const handleNavigateToMap = useCallback(() => {
+    setMapMounted(true);
+    setActiveTab('find');
+  }, []);
+
+  const handleSelectSpotFromHome = useCallback((spot: CampSpot) => {
+    selectSpot(spot);
+    setMapMounted(true);
+    setActiveTab('find');
+  }, [selectSpot]);
+
+  const handleTabChange = (tab: Tab) => {
+    setActiveTab(tab);
+    if (tab === 'find') {
+      setMapMounted(true);
+    }
+  };
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -31,9 +55,22 @@ export default function App() {
 
         {/* Main content */}
         <main className="flex-1 overflow-hidden relative">
-          <div className={activeTab === 'map' ? 'block w-full h-full' : 'hidden'}>
-            <MapPage />
+          {/* Home page */}
+          <div className={activeTab === 'home' ? 'block w-full h-full' : 'hidden'}>
+            <HomePage
+              onNavigateToMap={handleNavigateToMap}
+              onSelectSpot={handleSelectSpotFromHome}
+            />
           </div>
+
+          {/* Map page — mounted on first navigation, then kept alive */}
+          {mapMounted && (
+            <div className={activeTab === 'find' ? 'block w-full h-full' : 'hidden'}>
+              <MapPage />
+            </div>
+          )}
+
+          {/* Trip page */}
           <div className={activeTab === 'trip' ? 'block w-full h-full' : 'hidden'}>
             <TripPlannerPage />
           </div>
@@ -47,7 +84,7 @@ export default function App() {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => handleTabChange(tab.id)}
                   className={`flex-1 flex flex-col items-center py-3 gap-1 text-xs font-medium transition-colors ${
                     active ? 'text-amber-400' : 'text-stone-500 hover:text-stone-300'
                   }`}

@@ -74,9 +74,20 @@ export function CampingMap({ onSpotSelect }: Props) {
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
+    // If user location is already known, start there instead of the default center
+    const loc = useLocationStore.getState();
+    const initialCenter: [number, number] = loc.lat && loc.lng
+      ? [loc.lat, loc.lng]
+      : [39.5, -98.35];
+    const initialZoom = loc.lat && loc.lng ? 10 : 5;
+
+    if (loc.lat && loc.lng) {
+      hasFlownToUser.current = true;
+    }
+
     const map = L.map(containerRef.current, {
-      center: [39.5, -98.35],
-      zoom: 5,
+      center: initialCenter,
+      zoom: initialZoom,
       zoomControl: false,
     });
 
@@ -114,6 +125,12 @@ export function CampingMap({ onSpotSelect }: Props) {
     clusterRef.current = cluster;
     tileLayerRef.current = osmTile;
     topoLayerRef.current = topoTile;
+
+    // Leaflet needs a tick to measure container after mount
+    setTimeout(() => {
+      map.invalidateSize();
+      map.fire('moveend');
+    }, 100);
 
     return () => { map.remove(); mapRef.current = null; };
   }, []);
