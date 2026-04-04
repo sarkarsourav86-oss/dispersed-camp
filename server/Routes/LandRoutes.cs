@@ -1,4 +1,4 @@
-using server.Services;
+using server.Services.Interfaces;
 
 namespace server.Routes;
 
@@ -8,7 +8,7 @@ public static class LandRoutes
     {
         app.MapGet("/api/land", async (
             double west, double south, double east, double north,
-            BlmGisService blm, UsfsGisService usfs) =>
+            IBlmGisService blm, IUsfsGisService usfs) =>
         {
             var blmTask = blm.GetLandBoundariesAsync(west, south, east, north);
             var usfsTask = usfs.GetForestBoundariesAsync(west, south, east, north);

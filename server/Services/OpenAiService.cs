@@ -2,10 +2,11 @@ using Microsoft.Extensions.Caching.Memory;
 using System.Text;
 using System.Text.Json;
 using server.Models;
+using server.Services.Interfaces;
 
 namespace server.Services;
 
-public class OpenAiService(HttpClient http, IMemoryCache cache, IConfiguration config, ILogger<OpenAiService> logger)
+public class OpenAiService(HttpClient http, IMemoryCache cache, IConfiguration config, ILogger<OpenAiService> logger) : IOpenAiService
 {
     private const string ApiUrl = "https://api.openai.com/v1/chat/completions";
 

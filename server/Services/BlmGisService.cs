@@ -1,9 +1,10 @@
 using Microsoft.Extensions.Caching.Memory;
 using System.Text.Json;
+using server.Services.Interfaces;
 
 namespace server.Services;
 
-public class BlmGisService(HttpClient http, IMemoryCache cache, ILogger<BlmGisService> logger)
+public class BlmGisService(HttpClient http, IMemoryCache cache, ILogger<BlmGisService> logger) : IBlmGisService
 {
     // BLM National Surface Management Agency layer
     private const string BaseUrl =

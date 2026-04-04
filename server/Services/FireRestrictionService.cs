@@ -1,10 +1,11 @@
 using Microsoft.Extensions.Caching.Memory;
 using System.Text.Json;
 using server.Models;
+using server.Services.Interfaces;
 
 namespace server.Services;
 
-public class FireRestrictionService(HttpClient http, IMemoryCache cache, ILogger<FireRestrictionService> logger)
+public class FireRestrictionService(HttpClient http, IMemoryCache cache, ILogger<FireRestrictionService> logger) : IFireRestrictionService
 {
     // BLM fire restrictions layer (ArcGIS feature service)
     private const string BaseUrl =
