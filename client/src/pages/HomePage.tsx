@@ -97,17 +97,35 @@ export function HomePage({ onNavigateToMap, onSelectSpot }: Props) {
 
   const nearbySpots = spots.slice(0, 5);
 
-  return (
-    <div className="h-full overflow-y-auto bg-stone-950">
-      {/* Hero */}
-      <div className="relative px-6 pt-12 pb-8 overflow-hidden">
-        {/* Background image */}
-        <div className="absolute inset-0">
-          <img src="/van.png" alt="" className="w-full h-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-b from-stone-950/40 via-stone-950/50 to-stone-950" />
-        </div>
+  const [scrollY, setScrollY] = useState(0);
 
-        <div className="relative text-center mb-8">
+  const logoOffset = Math.min(scrollY * 0.5, 150);
+  const logoOpacity = Math.max(1 - scrollY / 300, 0);
+  const overlayOpacity = Math.min(0.4 + scrollY / 400, 0.95);
+
+  return (
+    <div
+      className="h-full overflow-y-auto bg-stone-950"
+      onScroll={(e) => setScrollY(e.currentTarget.scrollTop)}
+    >
+      {/* Fixed background image */}
+      <div className="fixed inset-x-0 top-0 h-screen z-0 pointer-events-none">
+        <img src="/van.png" alt="" className="w-full h-full object-cover" />
+        <div
+          className="absolute inset-0 bg-gradient-to-b from-stone-950/40 via-stone-950/60 to-stone-950"
+          style={{ opacity: overlayOpacity }}
+        />
+      </div>
+
+      {/* Hero */}
+      <div className="relative px-6 pt-12 pb-8 z-[1]">
+        <div
+          className="relative text-center mb-8"
+          style={{
+            transform: `translateY(-${logoOffset}px)`,
+            opacity: logoOpacity,
+          }}
+        >
           <img
             src="/logo.png"
             alt="VanLife Adventures"
@@ -178,8 +196,11 @@ export function HomePage({ onNavigateToMap, onSelectSpot }: Props) {
         </div>
       </div>
 
+      {/* Gradient transition from hero to content */}
+      <div className="relative z-[1] h-10 bg-gradient-to-b from-transparent to-stone-950 pointer-events-none" />
+
       {/* Nearby spots */}
-      <div className="px-4 py-6">
+      <div className="relative z-[1] px-4 py-6 bg-stone-950 -mt-1">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-base font-bold text-stone-100">Nearby Spots</h2>
           {nearbySpots.length > 0 && (
@@ -232,7 +253,7 @@ export function HomePage({ onNavigateToMap, onSelectSpot }: Props) {
       </div>
 
       {/* Explore by category */}
-      <div className="px-4 pb-8">
+      <div className="relative z-[1] px-4 pb-8 bg-stone-950">
         <h2 className="text-base font-bold text-stone-100 mb-3">Explore by Category</h2>
         <div className="grid grid-cols-2 gap-2">
           {QUICK_FILTERS.map(({ label, Icon, categories }) => {

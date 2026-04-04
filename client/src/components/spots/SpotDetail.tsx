@@ -6,7 +6,7 @@ import type { CampSpot } from '../../types';
 import { useRouting } from '../../hooks/useRouting';
 import { useWeather } from '../../hooks/useWeather';
 import { useFireRestrictions } from '../../hooks/useFireRestrictions';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useLocationStore, useTripStore, useVanStore } from '../../store';
 import { VanProfileSetup } from '../van/VanProfileSetup';
 import { WeatherWidget } from '../weather/WeatherWidget';
@@ -37,6 +37,14 @@ export function SpotDetail({ spot }: Props) {
   const earthUrl = `https://earth.google.com/web/search/${spot.lat},${spot.lng}`;
 
   const tripPlan = useTripPlan();
+  const planRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to plan section when loading starts or result arrives
+  useEffect(() => {
+    if (tripPlan.isPending || tripPlan.data) {
+      planRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [tripPlan.isPending, tripPlan.data]);
 
   const categoryConfig = spot.source === 'ioverlander' && spot.iOverlanderCategory
     ? getCategoryConfig(spot.iOverlanderCategory)
@@ -245,25 +253,44 @@ export function SpotDetail({ spot }: Props) {
       )}
 
       {/* AI Trip Plan */}
-      {tripPlan.isPending && (
-        <div className="px-4">
-          <div className="bg-stone-900 rounded-xl border border-stone-800 p-6 flex items-center justify-center gap-3 text-stone-400 text-sm">
-            <LoadingSpinner size="sm" /> Generating your vanlife trip plan...
+      <div ref={planRef}>
+        {tripPlan.isPending && (
+          <div className="px-4">
+            <div className="bg-stone-900 rounded-xl border border-amber-500/30 p-6 space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
+                    <Magic size={18} className="text-amber-400 animate-pulse" />
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-stone-100">Generating your trip plan...</p>
+                  <p className="text-xs text-stone-500">Analyzing spot, weather, and your van profile</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                {['Route + Stops', 'Water + Fuel', 'Rig Access', 'Conditions'].map((step) => (
+                  <span key={step} className="text-[10px] bg-stone-800 text-stone-500 px-2 py-1 rounded-full animate-pulse">
+                    {step}
+                  </span>
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
-      )}
-      {tripPlan.data && (
-        <div className="px-4">
-          <TripPlanCard plan={tripPlan.data} />
-        </div>
-      )}
-      {tripPlan.isError && (
-        <div className="px-4">
-          <div className="bg-red-900/30 rounded-xl border border-red-800/50 p-4 text-sm text-red-300">
-            Failed to generate trip plan. Check that OPENAI_API_KEY is configured.
+        )}
+        {tripPlan.data && (
+          <div className="px-4">
+            <TripPlanCard plan={tripPlan.data} />
           </div>
-        </div>
-      )}
+        )}
+        {tripPlan.isError && (
+          <div className="px-4">
+            <div className="bg-red-900/30 rounded-xl border border-red-800/50 p-4 text-sm text-red-300">
+              Failed to generate trip plan. Check that OPENAI_API_KEY is configured.
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Links */}
       <div className="flex gap-3 px-4 pb-6">
