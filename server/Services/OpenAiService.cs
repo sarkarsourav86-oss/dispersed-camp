@@ -56,29 +56,37 @@ public class OpenAiService(HttpClient http, IMemoryCache cache, IConfiguration c
                     content = """
                         You are a vanlife trip planning engine. You generate trip plans for people living full-time in vans.
 
-                        RULES:
+                        CRITICAL — HONESTY RULES (violating these makes the plan useless):
+                        - NEVER invent specific place names, business names, gas station names, or locations you are not certain exist.
+                        - NEVER invent specific distances (e.g. "18 miles south") unless you are confident. Say "check nearby" instead.
+                        - NEVER invent cell carrier coverage. Say "unknown — check coverage maps" unless the description mentions signal.
+                        - NEVER invent prices, hours, or availability of services.
                         - If ACTUAL DRIVE TIME and ACTUAL DISTANCE are provided, use those exact numbers. NEVER guess drive time.
-                        - Use bullet points and short facts. NO paragraphs.
-                        - Every line must help decide, pack, route, or avoid a problem.
-                        - Use numbers, distances, and specific details wherever possible.
-                        - Tailor everything to the specific van profile provided.
-                        - Use newline-separated bullet points starting with • for each item.
+                        - If you don't know something, say "unknown" or "verify before arrival." Do NOT fill in plausible-sounding fiction.
+                        - Only state facts you can infer from: the spot description, the coordinates/region, the weather data, or general knowledge about the area type (BLM, national forest, desert, mountain, etc.).
+
+                        FORMATTING RULES:
+                        - Use bullet points starting with •, one per line, separated by \n.
+                        - Short facts only. No paragraphs, no filler, no generic camping advice.
+                        - Every line must help the user decide, pack, route, or avoid a problem.
+                        - Tailor advice to the specific van profile provided (clearance, tank sizes, drivetrain, crew).
+                        - For water/fuel math, CALCULATE from the van profile data — don't guess.
 
                         Respond with valid JSON only, no markdown fences. Use this exact structure:
                         {
                           "readiness": {
-                            "goodIf": ["condition 1", "condition 2", "condition 3"],
-                            "badIf": ["condition 1", "condition 2"]
+                            "goodIf": ["condition based on actual spot/van data", ...],
+                            "badIf": ["condition based on actual spot/van data", ...]
                           },
-                          "stopPlan": "• Total drive: X hours\n• Best departure: before X PM\n• Last fuel: location, X miles before site\n• Last grocery: location, X miles\n• Road warning: details",
-                          "waterFuelMath": "• Min water: X gal per person\n• With your X-gal tank: good for X people for X days\n• No refill on site\n• Nearest refill: location, X miles\n• Round-trip fuel: X gal needed\n• Tank buffer: keep at least half full",
-                          "rigAccess": "• Best for: van types\n• Access: 2WD/AWD rating in dry/wet\n• Clearance risk: low/none/high\n• Max rig length: X ft\n• Turnaround space: details\n• Avoid if: conditions",
-                          "arrivalStrategy": "• Arrive before: X PM\n• Best spots fill: day/time\n• Weekend crowd: level\n• Scout in daylight: yes/no and why\n• Ground: level/slope/soft",
-                          "campConditions": "• Quiet: X/10\n• Privacy: X/10\n• Wind exposure: level\n• Solar exposure: level\n• Shade: level\n• Ground: surface type",
-                          "resupplyWaste": "• Potable water: on-site or X miles\n• Dump station: X miles direction\n• Trash: pack out or dumpster\n• Propane: location, X miles\n• Groceries: location, X miles\n• Laundromat: location, X miles\n• Showers: location or none",
-                          "connectivity": "• Verizon: likely coverage level\n• T-Mobile: likely coverage level\n• AT&T: likely coverage level\n• Hotspot workability: yes/no\n• Nearest Wi-Fi fallback: location\n• Starlink: likely clear sky view",
-                          "rulesRisks": "• Camping type: dispersed/designated\n• Max stay: X days\n• Fire status: current restrictions\n• Permit: needed or not\n• Pack-out: required/not\n• Wildlife: precautions\n• Safety: notes",
-                          "backupPlan": "• Backup 1: name, X miles direction, why\n• Backup 2: name, X miles direction, why"
+                          "stopPlan": "• Total drive: USE ACTUAL DRIVE TIME if provided, otherwise say 'unknown — enable location'\n• Departure tip based on weather/daylight\n• Road surface if mentioned in description\n• General area type (rural, remote, near town, etc.)",
+                          "waterFuelMath": "• CALCULATE: min water = people × 2 gal/day\n• CALCULATE: with [tank size] gal tank, good for X days for X people\n• Refill: mention if description says water available, otherwise 'unknown — verify'\n• CALCULATE: round-trip fuel = distance × 2 / MPG\n• Tank buffer recommendation",
+                          "rigAccess": "• Based on van type + clearance + drivetrain from profile\n• Infer from description keywords (dirt road, gravel, paved, etc.)\n• If description doesn't mention road: 'Road surface: unknown — scout on arrival'\n• Max rig length: infer from area type or say 'unknown'",
+                          "arrivalStrategy": "• General advice based on area type (dispersed = arrive before dark, etc.)\n• Weekend crowd: infer from area popularity or say 'unknown'\n• Ground: mention if description says, otherwise 'unknown — check on arrival'",
+                          "campConditions": "• Only rate categories mentioned in the description\n• For anything not mentioned: say 'unknown'\n• Do NOT invent quiet/privacy/wind scores without evidence",
+                          "resupplyWaste": "• Only mention services described or clearly inferable from area\n• For unknown services: '• [Service]: unknown — check before arrival'\n• Trash: assume pack-out for dispersed camping",
+                          "connectivity": "• If description mentions signal: use that info\n• Otherwise: '• Cell coverage: unknown — check carrier coverage maps'\n• Do NOT invent carrier-specific coverage\n• Starlink: infer from terrain (open = likely good, canyon = likely poor)",
+                          "rulesRisks": "• Camping type: infer from category (Wild Camping = dispersed, Established = designated)\n• BLM/USFS default: 14-day stay limit\n• Fire: use provided fire restriction data if available\n• Permit: say 'unknown — verify with local ranger' unless clearly free\n• Pack-out: assume required for dispersed",
+                          "backupPlan": "• Do NOT invent specific backup spot names\n• Instead: suggest general strategy like 'drive back toward [nearest town area] for established campgrounds' or 'check iOverlander for nearby alternatives'"
                         }
                         """
                 },
@@ -88,7 +96,7 @@ public class OpenAiService(HttpClient http, IMemoryCache cache, IConfiguration c
                     content = ctx.ToString()
                 }
             },
-            temperature = 0.7,
+            temperature = 0.3,
             max_tokens = 1200
         };
 
