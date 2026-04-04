@@ -78,5 +78,19 @@ Set per-query: `staleTime` based on data freshness needs, `gcTime` longer than s
 
 ## Deployment
 
-- Frontend: Vercel (build `client/dist/`)
-- Backend: Azure App Service (set `RIDB_API_KEY`, `ORS_API_KEY`, `CORS_ORIGIN` in App Settings)
+All hosted on Azure (free tier). CI/CD via GitHub Actions.
+
+- **Frontend**: Azure Static Web Apps (free) — SPA with `staticwebapp.config.json` for routing
+- **Backend**: Azure App Service F1 (free) — .NET 10 Minimal API
+- **CI/CD**: `.github/workflows/deploy.yml` (push to main) + `pr-checks.yml` (PR validation)
+
+**Azure resources**: Resource group `dispersed-camp-rg`, App Service `dispersed-camp-api`, Static Web App `dispersed-camp-web`
+
+**GitHub Secrets required**:
+- `AZURE_STATIC_WEB_APPS_API_TOKEN` — from Static Web App → Deployment token
+- `AZURE_WEBAPP_PUBLISH_PROFILE` — from App Service → Download publish profile
+- `ORS_API_KEY`, `OPENAI_API_KEY` — set as App Service App Settings, not in secrets
+
+**App Service App Settings** (set in Azure Portal → App Service → Configuration):
+- `CORS_ORIGIN` — Static Web App URL (e.g., `https://dispersed-camp-web.azurestaticapps.net`)
+- `ORS_API_KEY`, `OPENAI_API_KEY` — API keys for routing and trip planning

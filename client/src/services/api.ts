@@ -1,7 +1,9 @@
 import axios from 'axios';
 import type { RouteResult, FireRestrictionResult } from '../types';
 
-const api = axios.create({ baseURL: '/api' });
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || '/api',
+});
 
 export async function fetchLandBoundaries(west: number, south: number, east: number, north: number, signal?: AbortSignal) {
   const { data } = await api.get('/land', { params: { west, south, east, north }, signal });
