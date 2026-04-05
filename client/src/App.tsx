@@ -80,7 +80,7 @@ export default function App() {
         </main>
 
         {/* Bottom nav */}
-        <nav className="flex-shrink-0 bg-stone-900 border-t border-stone-800 safe-area-bottom">
+        <nav className="flex-shrink-0 bg-stone-900 border-t border-stone-800 pb-2 safe-area-bottom">
           <div className="flex">
             {TABS.map((tab) => {
               const active = activeTab === tab.id;
