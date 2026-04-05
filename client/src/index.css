@@ -15,9 +15,15 @@ html, body, #root {
 .leaflet-pane { z-index: 400; }
 .leaflet-control { z-index: 450; }
 
-/* Safe area for iOS home indicator + browser toolbar */
+/* Safe area for iOS home indicator */
 .safe-area-bottom {
-  padding-bottom: max(env(safe-area-inset-bottom, 0px), 0.5rem);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* App shell height — dvh pushes nav above mobile browser toolbar */
+.app-shell {
+  height: 100vh;
+  height: 100dvh;
 }
 
 /* Smooth scrolling in bottom sheets */
