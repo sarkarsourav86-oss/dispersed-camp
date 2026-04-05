@@ -53,7 +53,7 @@ export default function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="flex flex-col h-screen bg-stone-950 text-stone-100 overflow-hidden">
+      <div className="flex flex-col bg-stone-950 text-stone-100 overflow-hidden app-shell">
         <OfflineBanner />
 
         {/* Main content */}

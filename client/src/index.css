@@ -20,6 +20,12 @@ html, body, #root {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/* App shell height — dvh pushes nav above mobile browser toolbar */
+.app-shell {
+  height: 100vh;
+  height: 100dvh;
+}
+
 /* Smooth scrolling in bottom sheets */
 .overflow-y-auto {
   -webkit-overflow-scrolling: touch;
