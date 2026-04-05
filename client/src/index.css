@@ -15,9 +15,9 @@ html, body, #root {
 .leaflet-pane { z-index: 400; }
 .leaflet-control { z-index: 450; }
 
-/* Safe area for iOS home indicator */
+/* Safe area for iOS home indicator + browser toolbar */
 .safe-area-bottom {
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 0.5rem);
 }
 
 /* Smooth scrolling in bottom sheets */
