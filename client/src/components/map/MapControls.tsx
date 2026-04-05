@@ -15,7 +15,7 @@ export function MapControls() {
   const [iovExpanded, setIovExpanded] = useState(false);
 
   return (
-    <div className="absolute top-4 right-4 z-[500] flex flex-col gap-2 max-h-[70vh] overflow-y-auto">
+    <div className="absolute top-16 right-4 z-[500] flex flex-col gap-2 max-h-[60vh] overflow-y-auto">
       {/* Layer toggles */}
       <div className="bg-stone-900/90 rounded-xl p-3 flex flex-col gap-2 shadow-lg backdrop-blur-sm text-xs text-stone-300">
         <p className="font-semibold text-stone-400 uppercase tracking-wide text-[10px]">Layers</p>
