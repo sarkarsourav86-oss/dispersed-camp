@@ -6,8 +6,17 @@ namespace server.Services;
 
 public class RoutePoiService(IWebHostEnvironment env, ILogger<RoutePoiService> logger) : IRoutePoiService
 {
-    // iOverlander data lives at client/public/data/ioverlander/
-    private string DataDir => Path.Combine(env.ContentRootPath, "..", "client", "public", "data", "ioverlander");
+    // In publish output: data/ioverlander/ (copied by csproj)
+    // In dev: ../client/public/data/ioverlander/
+    private string DataDir
+    {
+        get
+        {
+            var publishPath = Path.Combine(env.ContentRootPath, "data", "ioverlander");
+            if (Directory.Exists(publishPath)) return publishPath;
+            return Path.Combine(env.ContentRootPath, "..", "client", "public", "data", "ioverlander");
+        }
+    }
 
     private const double SampleIntervalKm = 80; // ~50 miles between sample points
     private const double CorridorRadiusKm = 25;  // ~15 miles from route

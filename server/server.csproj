@@ -6,4 +6,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
+  <!-- Copy iOverlander data into publish output -->
+  <ItemGroup>
+    <Content Include="..\client\public\data\ioverlander\**\*" LinkBase="data\ioverlander" CopyToPublishDirectory="PreserveNewest" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
