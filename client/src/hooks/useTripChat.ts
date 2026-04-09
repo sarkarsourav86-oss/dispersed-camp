@@ -56,7 +56,7 @@ export function useTripChat({ spot, vanProfile, routeInfo, routePoiSegments }: U
 
   const lat = useLocationStore((s) => s.lat);
   const lng = useLocationStore((s) => s.lng);
-  const { data: startLocationDetails } = useLocationDetails(lat, lng);
+  const { data: startLocationDetails } = useLocationDetails(lat ?? 0, lng ?? 0);
 
   const mutation = useMutation({
     mutationFn: async (userMessage: string) => {
