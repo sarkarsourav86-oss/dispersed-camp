@@ -153,4 +153,172 @@ public class OpenAiService(HttpClient http, IMemoryCache cache, IConfiguration c
             return null;
         }
     }
+
+    public async Task<TripChatResponse?> GenerateTripChatAsync(TripChatRequest request)
+    {
+        var apiKey = config["OPENAI_API_KEY"];
+        if (string.IsNullOrEmpty(apiKey))
+        {
+            logger.LogWarning("OPENAI_API_KEY not configured");
+            return null;
+        }
+
+        var ctx = new StringBuilder();
+
+        if (request.StartLocation is not null)
+        {
+            var startName = new[] { request.StartLocation.City, request.StartLocation.State }
+                .Where(s => !string.IsNullOrEmpty(s)).ToArray();
+            var startLabel = startName.Length > 0 ? string.Join(", ", startName) : $"{request.StartLocation.Lat:F2}°N, {Math.Abs(request.StartLocation.Lng):F2}°W";
+            ctx.AppendLine($"START LOCATION: {startLabel} ({request.StartLocation.Lat:F4}°N, {Math.Abs(request.StartLocation.Lng):F4}°W)");
+        }
+
+        ctx.AppendLine($"DESTINATION: {request.Spot.Name}");
+        ctx.AppendLine($"DESTINATION COORDINATES: {request.Spot.Lat:F4}°N, {Math.Abs(request.Spot.Lng):F4}°W");
+        if (!string.IsNullOrEmpty(request.Spot.Category)) ctx.AppendLine($"TYPE: {request.Spot.Category}");
+        if (!string.IsNullOrEmpty(request.Spot.Description)) ctx.AppendLine($"DESCRIPTION: {request.Spot.Description}");
+
+        if (request.RouteInfo is not null)
+        {
+            ctx.AppendLine($"ROUTE: {request.RouteInfo.DistanceMiles:F1} miles, {request.RouteInfo.DurationFormatted}");
+        }
+
+        if (request.VanProfile is not null)
+        {
+            var vp = request.VanProfile;
+            ctx.AppendLine("\nVAN PROFILE:");
+            if (!string.IsNullOrEmpty(vp.VanType)) ctx.AppendLine($"  Vehicle: {vp.VanType}, {vp.LengthFt}ft");
+            if (!string.IsNullOrEmpty(vp.Clearance)) ctx.AppendLine($"  Clearance: {vp.Clearance}");
+            if (!string.IsNullOrEmpty(vp.Drivetrain)) ctx.AppendLine($"  Drivetrain: {vp.Drivetrain}");
+            if (vp.WaterTankGal.HasValue) ctx.AppendLine($"  Water tank: {vp.WaterTankGal} gal");
+            if (vp.FuelTankGal.HasValue) ctx.AppendLine($"  Fuel tank: {vp.FuelTankGal} gal, {vp.Mpg} MPG");
+            if (vp.PeopleCount.HasValue) ctx.AppendLine($"  Crew: {vp.PeopleCount} people{(vp.HasPet == true ? " + pet" : "")}");
+            if (vp.NeedsInternet == true) ctx.AppendLine("  Needs reliable internet");
+        }
+
+        if (!string.IsNullOrEmpty(request.RoutePoiContext))
+        {
+            ctx.AppendLine();
+            ctx.AppendLine(request.RoutePoiContext);
+        }
+
+        var systemPrompt = $$"""
+            You are a vanlife trip planning assistant. The user is driving from a START LOCATION to a DESTINATION.
+
+            CONTEXT:
+            {{ctx}}
+
+            CRITICAL RULES — SELECTING STOPS:
+            - You have been given a list of REAL, VERIFIED service locations along the actual driving route, organized by route segment.
+            - When the user asks for stops, you MUST select from these provided locations. Use their exact names and coordinates.
+            - NEVER invent locations or coordinates. ONLY use places from the provided list.
+            - If no suitable service exists in the provided list for what the user needs, say so honestly.
+            - Choose stops that are well-spaced along the route (e.g., fuel stops every 200-300 miles based on the van's fuel tank and MPG).
+            - Consider the van profile when selecting stops (tank size, MPG, water needs, clearance).
+
+            YOUR JOB:
+            - Help the user plan their trip conversationally.
+            - When suggesting stops, pick the best options from the provided service list based on spacing, category match, and user needs.
+            - Keep responses short and helpful (2-4 sentences + waypoints if applicable).
+
+            WAYPOINTS:
+            When you suggest stops, include a "waypoints" array with the EXACT coordinates from the provided POI list.
+            Only include waypoints when adding or modifying stops. For general chat, omit the waypoints field.
+
+            RESPONSE FORMAT — respond with valid JSON only, no markdown fences:
+            {
+              "message": "Your conversational response here",
+              "waypoints": [
+                { "lat": 38.99, "lng": -110.15, "name": "Gas - Green River, UT", "type": "fuel" }
+              ]
+            }
+
+            Valid waypoint types: "fuel", "water", "dump", "rest", "overnight", "propane", "other"
+
+            If no waypoints are needed (general chat), respond:
+            { "message": "Your response here" }
+            """;
+
+        var messages = new List<object>
+        {
+            new { role = "system", content = systemPrompt }
+        };
+
+        foreach (var msg in request.Messages)
+        {
+            // Only allow user/assistant roles — block system role injection from client
+            var role = msg.Role?.ToLowerInvariant();
+            if (role is not ("user" or "assistant")) continue;
+            messages.Add(new { role, content = msg.Content ?? "" });
+        }
+
+        var payload = new
+        {
+            model = "o3",
+            messages,
+            max_completion_tokens = 8000
+        };
+
+        try
+        {
+            var jsonPayload = JsonSerializer.Serialize(payload);
+            var httpRequest = new HttpRequestMessage(HttpMethod.Post, ApiUrl)
+            {
+                Content = new StringContent(jsonPayload, Encoding.UTF8, "application/json")
+            };
+            httpRequest.Headers.Add("Authorization", $"Bearer {apiKey}");
+
+            var response = await http.SendAsync(httpRequest);
+            var responseBody = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                logger.LogError("OpenAI API error {Status}: {Body}", response.StatusCode, responseBody);
+                return null;
+            }
+
+            var json = JsonSerializer.Deserialize<JsonElement>(responseBody);
+            var content = json
+                .GetProperty("choices")[0]
+                .GetProperty("message")
+                .GetProperty("content")
+                .GetString();
+
+            if (string.IsNullOrEmpty(content))
+            {
+                logger.LogWarning("OpenAI returned empty content for trip chat");
+                return new TripChatResponse("Sorry, I couldn't process that request. Please try again.", null);
+            }
+
+            content = content.Trim();
+            if (content.StartsWith("```"))
+            {
+                var firstNewline = content.IndexOf('\n');
+                if (firstNewline >= 0) content = content[(firstNewline + 1)..];
+                if (content.EndsWith("```")) content = content[..^3];
+                content = content.Trim();
+            }
+
+            logger.LogInformation("Trip chat raw AI response: {Content}", content);
+
+            try
+            {
+                var chatResponse = JsonSerializer.Deserialize<TripChatResponse>(content, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+                return chatResponse;
+            }
+            catch (JsonException jsonEx)
+            {
+                logger.LogWarning(jsonEx, "Failed to parse AI response as JSON, returning as plain message. Content: {Content}", content);
+                return new TripChatResponse(content, null);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to generate trip chat response for {Name}", request.Spot.Name);
+            return null;
+        }
+    }
 }

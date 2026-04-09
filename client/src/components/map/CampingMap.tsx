@@ -7,7 +7,7 @@ import 'leaflet.markercluster';
 import { useLocationStore, useSpotsStore, useSettingsStore, useMapStore } from '../../store';
 import { useNearbySpots } from '../../hooks/useNearbySpots';
 import { useLandOverlays } from '../../hooks/useLandOverlays';
-import type { CampSpot, IOverlanderCategory } from '../../types';
+import type { CampSpot, IOverlanderCategory, RouteWaypoint } from '../../types';
 import { IOVERLANDER_CATEGORIES } from '../../data/iOverlanderCategories';
 import { LoadingSpinner } from '../shared/LoadingSpinner';
 
@@ -48,9 +48,12 @@ function getCategoryIcon(category: IOverlanderCategory): L.DivIcon {
 
 interface Props {
   onSpotSelect: (spot: CampSpot) => void;
+  mode?: 'discover' | 'route';
+  routeGeometry?: number[][] | null;
+  routeWaypoints?: RouteWaypoint[] | null;
 }
 
-export function CampingMap({ onSpotSelect }: Props) {
+export function CampingMap({ onSpotSelect, mode = 'discover', routeGeometry, routeWaypoints }: Props) {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const clusterRef = useRef<L.MarkerClusterGroup | null>(null);
@@ -60,6 +63,7 @@ export function CampingMap({ onSpotSelect }: Props) {
   const usfsLayerRef = useRef<L.GeoJSON | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
   const topoLayerRef = useRef<L.TileLayer | null>(null);
+  const routeLayerRef = useRef<L.LayerGroup | null>(null);
 
   const { lat, lng, searchLocation } = useLocationStore();
   const { selectSpot } = useSpotsStore();
@@ -67,6 +71,7 @@ export function CampingMap({ onSpotSelect }: Props) {
 
   const { mapBbox: bbox, setMapBbox: setBbox } = useMapStore();
 
+  const isDiscoverMode = mode === 'discover';
   const { data: spots = [], isLoading: spotsLoading } = useNearbySpots();
   const { data: land } = useLandOverlays(bbox);
 
@@ -112,15 +117,18 @@ export function CampingMap({ onSpotSelect }: Props) {
     });
     map.addLayer(cluster);
 
-    map.on('moveend', () => {
-      const b = map.getBounds();
-      setBbox({
-        west: b.getWest(),
-        south: b.getSouth(),
-        east: b.getEast(),
-        north: b.getNorth(),
+    // Only update bbox store in discover mode (route mode shouldn't interfere)
+    if (isDiscoverMode) {
+      map.on('moveend', () => {
+        const b = map.getBounds();
+        setBbox({
+          west: b.getWest(),
+          south: b.getSouth(),
+          east: b.getEast(),
+          north: b.getNorth(),
+        });
       });
-    });
+    }
 
     mapRef.current = map;
     clusterRef.current = cluster;
@@ -172,11 +180,13 @@ export function CampingMap({ onSpotSelect }: Props) {
     }
   }, [showTopoMap]);
 
-  // Render camp spot markers
+  // Render camp spot markers (discover mode only)
   useEffect(() => {
     const cluster = clusterRef.current;
     if (!cluster) return;
     cluster.clearLayers();
+
+    if (!isDiscoverMode) return;
 
     spots.forEach((spot) => {
       const icon = spot.source === 'ioverlander' && spot.iOverlanderCategory
@@ -190,7 +200,7 @@ export function CampingMap({ onSpotSelect }: Props) {
       });
       cluster.addLayer(marker);
     });
-  }, [spots, selectSpot, onSpotSelect]);
+  }, [spots, selectSpot, onSpotSelect, isDiscoverMode]);
 
   // Render BLM overlay
   useEffect(() => {
@@ -228,10 +238,62 @@ export function CampingMap({ onSpotSelect }: Props) {
     usfsLayerRef.current = layer;
   }, [land?.usfs, showUSFS]);
 
+  // Render route polyline + waypoint markers (route mode)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    // Clean up previous route layer
+    if (routeLayerRef.current) {
+      map.removeLayer(routeLayerRef.current);
+      routeLayerRef.current = null;
+    }
+
+    if (!routeGeometry || routeGeometry.length === 0) return;
+
+    const layerGroup = L.layerGroup().addTo(map);
+    routeLayerRef.current = layerGroup;
+
+    // Draw polyline (geometry is [lat, lng] pairs)
+    const latLngs = routeGeometry.map(([lat, lng]) => [lat, lng] as [number, number]);
+    L.polyline(latLngs, {
+      color: '#f59e0b',
+      weight: 4,
+      opacity: 0.85,
+    }).addTo(layerGroup);
+
+    // Draw waypoint markers
+    if (routeWaypoints) {
+      routeWaypoints.forEach((wp) => {
+        const isStart = wp.index === -1;
+        const icon = L.divIcon({
+          className: '',
+          html: `<div style="width:32px;height:32px;background:${isStart ? '#3b82f6' : '#f59e0b'};border:2px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:${isStart ? '#fff' : '#1c1917'};box-shadow:0 2px 8px rgba(0,0,0,0.4)">${isStart ? 'S' : wp.index + 1}</div>`,
+          iconSize: [32, 32],
+          iconAnchor: [16, 16],
+        });
+        L.marker([wp.lat, wp.lng], { icon })
+          .bindTooltip(wp.name, { permanent: false, direction: 'top' })
+          .addTo(layerGroup);
+      });
+    }
+
+    // Fit map to route bounds
+    const bounds = L.latLngBounds(latLngs);
+    map.fitBounds(bounds, { padding: [50, 50] });
+
+    return () => {
+      if (routeLayerRef.current) {
+        map.removeLayer(routeLayerRef.current);
+        routeLayerRef.current = null;
+      }
+    };
+  }, [routeGeometry, routeWaypoints]);
+
   return (
     <div className="relative w-full h-full">
       <div ref={containerRef} className="w-full h-full" />
-      {spotsLoading && (
+      {spotsLoading && isDiscoverMode && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[500] bg-stone-900/90 rounded-full px-4 py-2 flex items-center gap-2 text-sm text-stone-300">
           <LoadingSpinner size="sm" /> Finding spots…
         </div>

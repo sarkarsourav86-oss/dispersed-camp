@@ -83,6 +83,71 @@ export type VanType = 'sprinter' | 'transit' | 'promaster' | 'minivan' | 'suv' |
 export type Clearance = 'low' | 'standard' | 'high';
 export type Drivetrain = '2wd' | 'awd' | '4wd';
 
+// Multi-stop routing
+export interface RouteLeg {
+  distanceMeters: number;
+  durationSeconds: number;
+  distanceMiles: number;
+  durationFormatted: string;
+  geometry: number[][];
+}
+
+export interface MultiStopRouteResult {
+  legs: RouteLeg[];
+  totalDistanceMiles: number;
+  totalDurationSeconds: number;
+  totalDurationFormatted: string;
+  geometry: number[][];
+}
+
+export interface RouteWaypoint {
+  lat: number;
+  lng: number;
+  index: number;
+  name: string;
+}
+
+// Trip chat
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface TripChatWaypoint {
+  lat: number;
+  lng: number;
+  name: string;
+  type: 'fuel' | 'water' | 'dump' | 'rest' | 'overnight' | 'propane' | 'other';
+}
+
+export interface TripChatResponse {
+  message: string;
+  waypoints?: TripChatWaypoint[];
+}
+
+// Route POI search
+export interface RoutePoiItem {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  category: string;
+  mileAlongRoute: number;
+  milesFromRoute: number;
+}
+
+export interface RoutePoiSegment {
+  segmentIndex: number;
+  startMile: number;
+  endMile: number;
+  pois: RoutePoiItem[];
+}
+
+export interface RoutePoiResult {
+  allPois: RoutePoiItem[];
+  segments: RoutePoiSegment[];
+}
+
 export interface VanProfile {
   vanType: VanType;
   length: number;
