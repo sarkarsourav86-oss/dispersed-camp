@@ -4,20 +4,8 @@ using server.Services.Interfaces;
 
 namespace server.Services;
 
-public class RoutePoiService(IWebHostEnvironment env, ILogger<RoutePoiService> logger) : IRoutePoiService
+public class RoutePoiService(HttpClient http, IWebHostEnvironment env, IConfiguration config, ILogger<RoutePoiService> logger) : IRoutePoiService
 {
-    // In publish output: data/ioverlander/ (copied by csproj)
-    // In dev: ../client/public/data/ioverlander/
-    private string DataDir
-    {
-        get
-        {
-            var publishPath = Path.Combine(env.ContentRootPath, "data", "ioverlander");
-            if (Directory.Exists(publishPath)) return publishPath;
-            return Path.Combine(env.ContentRootPath, "..", "client", "public", "data", "ioverlander");
-        }
-    }
-
     private const double SampleIntervalKm = 80; // ~50 miles between sample points
     private const double CorridorRadiusKm = 25;  // ~15 miles from route
     private const double EarthRadiusKm = 6371.0;
@@ -28,6 +16,28 @@ public class RoutePoiService(IWebHostEnvironment env, ILogger<RoutePoiService> l
         "Campground", "Informal Campsite", "Wild Camping",
         "Water", "Sanitation Dump Station", "Propane"
     };
+
+    /// <summary>
+    /// Resolve the data source: blob URL in production, local files in dev.
+    /// Config key IOVERLANDER_DATA_URL can override (set in Azure App Settings).
+    /// </summary>
+    private string? BlobBaseUrl => config["IOVERLANDER_DATA_URL"];
+
+    private string? LocalDataDir
+    {
+        get
+        {
+            // Publish output path
+            var publishPath = Path.Combine(env.ContentRootPath, "data", "ioverlander");
+            if (Directory.Exists(publishPath)) return publishPath;
+            // Dev path
+            var devPath = Path.Combine(env.ContentRootPath, "..", "client", "public", "data", "ioverlander");
+            if (Directory.Exists(devPath)) return devPath;
+            return null;
+        }
+    }
+
+    private bool UseBlob => !string.IsNullOrEmpty(BlobBaseUrl) && LocalDataDir == null;
 
     public async Task<RoutePoiResult> FindPoisAlongRouteAsync(double[][] routeGeometry)
     {
@@ -106,7 +116,6 @@ public class RoutePoiService(IWebHostEnvironment env, ILogger<RoutePoiService> l
 
             while (cumulativeKm >= nextSampleKm)
             {
-                // Interpolate the sample point
                 var overshoot = cumulativeKm - nextSampleKm;
                 var ratio = segKm > 0 ? 1.0 - (overshoot / segKm) : 1.0;
                 var sLat = geometry[i - 1][0] + ratio * (geometry[i][0] - geometry[i - 1][0]);
@@ -116,7 +125,6 @@ public class RoutePoiService(IWebHostEnvironment env, ILogger<RoutePoiService> l
             }
         }
 
-        // Always include the last point
         var last = geometry[^1];
         if (samples.Count == 0 || HaversineKm(samples[^1].lat, samples[^1].lng, last[0], last[1]) > 1)
         {
@@ -131,7 +139,6 @@ public class RoutePoiService(IWebHostEnvironment env, ILogger<RoutePoiService> l
         var cells = new HashSet<string>();
         foreach (var (lat, lng, _) in points)
         {
-            // Add the cell and its neighbors to cover the corridor
             var baseLat = (int)Math.Floor(lat);
             var baseLng = (int)Math.Floor(lng);
             for (int dLat = -1; dLat <= 1; dLat++)
@@ -147,51 +154,73 @@ public class RoutePoiService(IWebHostEnvironment env, ILogger<RoutePoiService> l
 
     private async Task<List<RawIOverlanderPlace>> LoadGridCellsAsync(HashSet<string> cellKeys)
     {
+        // Load manifest first to know which cells exist
+        var manifest = await LoadManifestAsync();
+        if (manifest.Count == 0)
+        {
+            logger.LogWarning("iOverlander manifest is empty — no data source available");
+            return [];
+        }
+
+        var validKeys = cellKeys.Where(k => manifest.Contains(k)).ToList();
         var allPois = new List<RawIOverlanderPlace>();
-        var dataDir = DataDir;
 
-        // Load manifest to know which cells exist
-        var manifestPath = Path.Combine(dataDir, "manifest.json");
-        HashSet<string> manifest;
-        try
+        var tasks = validKeys.Select(async key =>
         {
-            var manifestJson = await File.ReadAllTextAsync(manifestPath);
-            var keys = JsonSerializer.Deserialize<string[]>(manifestJson) ?? [];
-            manifest = new HashSet<string>(keys);
-        }
-        catch
-        {
-            logger.LogWarning("Could not read iOverlander manifest at {Path}", manifestPath);
-            return allPois;
-        }
-
-        var tasks = cellKeys
-            .Where(k => manifest.Contains(k))
-            .Select(async key =>
+            try
             {
-                var filePath = Path.Combine(dataDir, $"{key}.json");
-                try
+                var json = UseBlob
+                    ? await http.GetStringAsync($"{BlobBaseUrl}/{key}.json")
+                    : await File.ReadAllTextAsync(Path.Combine(LocalDataDir!, $"{key}.json"));
+
+                return JsonSerializer.Deserialize<List<RawIOverlanderPlace>>(json, new JsonSerializerOptions
                 {
-                    var json = await File.ReadAllTextAsync(filePath);
-                    return JsonSerializer.Deserialize<List<RawIOverlanderPlace>>(json, new JsonSerializerOptions
-                    {
-                        PropertyNameCaseInsensitive = true
-                    }) ?? [];
-                }
-                catch
-                {
-                    return new List<RawIOverlanderPlace>();
-                }
-            });
+                    PropertyNameCaseInsensitive = true
+                }) ?? [];
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to load grid cell {Key}", key);
+                return new List<RawIOverlanderPlace>();
+            }
+        });
 
         var results = await Task.WhenAll(tasks);
         foreach (var places in results)
         {
-            // Only include service categories useful for route planning
             allPois.AddRange(places.Where(p => ServiceCategories.Contains(p.Category)));
         }
 
         return allPois;
+    }
+
+    private async Task<HashSet<string>> LoadManifestAsync()
+    {
+        try
+        {
+            string manifestJson;
+            if (UseBlob)
+            {
+                manifestJson = await http.GetStringAsync($"{BlobBaseUrl}/manifest.json");
+            }
+            else if (LocalDataDir is not null)
+            {
+                manifestJson = await File.ReadAllTextAsync(Path.Combine(LocalDataDir, "manifest.json"));
+            }
+            else
+            {
+                logger.LogWarning("No iOverlander data source configured (no IOVERLANDER_DATA_URL and no local data)");
+                return [];
+            }
+
+            var keys = JsonSerializer.Deserialize<string[]>(manifestJson) ?? [];
+            return new HashSet<string>(keys);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Could not load iOverlander manifest");
+            return [];
+        }
     }
 
     private static List<RoutePoi> FilterPoisNearRoute(List<RawIOverlanderPlace> pois, double[][] geometry, double radiusKm)
@@ -226,14 +255,12 @@ public class RoutePoiService(IWebHostEnvironment env, ILogger<RoutePoiService> l
     {
         double minDist = double.MaxValue;
 
-        // Check every 5th segment for performance (route geometries can have thousands of points)
         for (int i = 0; i < geometry.Length - 1; i += 5)
         {
             var dist = PointToSegmentDistanceKm(lat, lng, geometry[i][0], geometry[i][1], geometry[i + 1][0], geometry[i + 1][1]);
             if (dist < minDist) minDist = dist;
         }
 
-        // Also check last segment
         if (geometry.Length >= 2)
         {
             var dist = PointToSegmentDistanceKm(lat, lng, geometry[^2][0], geometry[^2][1], geometry[^1][0], geometry[^1][1]);
@@ -245,7 +272,6 @@ public class RoutePoiService(IWebHostEnvironment env, ILogger<RoutePoiService> l
 
     private static double PointToSegmentDistanceKm(double pLat, double pLng, double aLat, double aLng, double bLat, double bLng)
     {
-        // Project point onto segment using flat approximation (good enough for ~25km distances)
         var dx = bLng - aLng;
         var dy = bLat - aLat;
         var lenSq = dx * dx + dy * dy;
@@ -280,7 +306,6 @@ public class RoutePoiService(IWebHostEnvironment env, ILogger<RoutePoiService> l
             cumulKm += segKm;
         }
 
-        // Check last point
         var lastDist = HaversineKm(lat, lng, geometry[^1][0], geometry[^1][1]);
         if (lastDist < minDist)
         {
@@ -310,7 +335,6 @@ public class RoutePoiService(IWebHostEnvironment env, ILogger<RoutePoiService> l
         return EarthRadiusKm * 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
     }
 
-    // Internal POI with mutable distance fields
     private class RoutePoi
     {
         public string Id { get; set; } = "";
@@ -323,7 +347,6 @@ public class RoutePoiService(IWebHostEnvironment env, ILogger<RoutePoiService> l
     }
 }
 
-// Raw iOverlander place from JSON files
 internal class RawIOverlanderPlace
 {
     public string Id { get; set; } = "";
