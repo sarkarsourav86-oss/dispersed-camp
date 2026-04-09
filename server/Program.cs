@@ -12,6 +12,7 @@ builder.Services.AddScoped<IUsfsGisService, UsfsGisService>();
 builder.Services.AddScoped<IOpenRouteService, OpenRouteService>();
 builder.Services.AddScoped<IFireRestrictionService, FireRestrictionService>();
 builder.Services.AddScoped<IOpenAiService, OpenAiService>();
+builder.Services.AddScoped<IRoutePoiService, RoutePoiService>();
 
 builder.Services.AddCors(options =>
 {
@@ -36,5 +37,6 @@ app.MapLandRoutes();
 app.MapRoutingRoutes();
 app.MapFireRoutes();
 app.MapTripPlanRoutes();
+app.MapMultiRoutingRoutes();
 
 app.Run();

@@ -1,23 +1,46 @@
 import { useState } from 'react';
-import { PencilFill, TruckFront } from 'react-bootstrap-icons';
+import { PencilFill, TruckFront, SignpostFill, Map } from 'react-bootstrap-icons';
 import { useTripStore, useVanStore } from '../store';
-import { SpotCard } from '../components/spots/SpotCard';
-import { SpotDetail } from '../components/spots/SpotDetail';
-import { BottomSheet } from '../components/shared/BottomSheet';
 import { VanProfileSetup } from '../components/van/VanProfileSetup';
+import SavedSpotList from '../components/trip/SavedSpotList';
+import RouteDetailView from '../components/trip/RouteDetailView';
 import type { CampSpot } from '../types';
 
-export function TripPlannerPage() {
+interface TripPlannerPageProps {
+  onNavigateToMap?: () => void;
+}
+
+export function TripPlannerPage({ onNavigateToMap }: TripPlannerPageProps) {
   const { savedSpots, removeSpot } = useTripStore();
   const vanProfile = useVanStore((s) => s.profile);
-  const [selected, setSelected] = useState<CampSpot | null>(null);
+
+  const [selectedSpot, setSelectedSpot] = useState<CampSpot | null>(null);
   const [editingVan, setEditingVan] = useState(false);
+
+  // Route detail view for a selected saved spot
+  if (selectedSpot) {
+    return (
+      <RouteDetailView
+        spot={selectedSpot}
+        onBack={() => setSelectedSpot(null)}
+      />
+    );
+  }
 
   return (
     <div className="h-full overflow-y-auto">
       <div className="max-w-2xl mx-auto px-4 py-6 pb-24">
-        <div className="mb-6">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-stone-100">My Trip</h1>
+          {vanProfile && (
+            <div className="flex items-center gap-2">
+              <TruckFront size={16} className="text-amber-400" />
+              <span className="text-xs text-stone-400 capitalize">
+                {vanProfile.vanType.replace('-', ' ')}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Van Profile */}
@@ -66,41 +89,32 @@ export function TripPlannerPage() {
           </div>
         )}
 
-        {/* Saved Spots */}
-        <div className="mb-3">
-          <p className="text-xs text-stone-400 uppercase tracking-wide font-semibold">
-            Saved Spots {savedSpots.length > 0 && `(${savedSpots.length})`}
-          </p>
-        </div>
-
+        {/* Saved Spots List or Empty State */}
         {savedSpots.length === 0 ? (
-          <div className="text-center py-12 text-stone-600">
-            <p className="text-lg font-medium text-stone-500">No spots saved yet</p>
-            <p className="text-sm text-stone-600 mt-1">Tap a spot on the map and press Save</p>
+          <div className="text-center py-12">
+            <SignpostFill size={32} className="text-stone-700 mx-auto mb-3" />
+            <p className="text-lg font-medium text-stone-500">No saved locations yet!</p>
+            <p className="text-sm text-stone-600 mt-1">
+              Save campsites from the map to plan your trips.
+            </p>
+            {onNavigateToMap && (
+              <button
+                onClick={onNavigateToMap}
+                className="mt-4 inline-flex items-center gap-2 bg-amber-500 text-stone-950 font-semibold text-sm py-2.5 px-5 rounded-xl hover:bg-amber-400 transition-colors"
+              >
+                <Map size={16} />
+                Find Spots
+              </button>
+            )}
           </div>
         ) : (
-          <div className="space-y-2">
-            {savedSpots.map((spot) => (
-              <div key={spot.id} className="flex gap-2">
-                <div className="flex-1">
-                  <SpotCard spot={spot} onClick={() => setSelected(spot)} />
-                </div>
-                <button
-                  onClick={() => removeSpot(spot.id)}
-                  aria-label="Remove spot"
-                  className="bg-stone-900 hover:bg-red-900 text-stone-500 hover:text-red-300 rounded-xl px-3 border border-stone-800 transition-colors"
-                >
-                  &times;
-                </button>
-              </div>
-            ))}
-          </div>
+          <SavedSpotList
+            spots={savedSpots}
+            onSelectSpot={setSelectedSpot}
+            onRemoveSpot={removeSpot}
+          />
         )}
       </div>
-
-      <BottomSheet open={!!selected} onClose={() => setSelected(null)} title={selected?.name}>
-        {selected && <SpotDetail spot={selected} />}
-      </BottomSheet>
     </div>
   );
 }

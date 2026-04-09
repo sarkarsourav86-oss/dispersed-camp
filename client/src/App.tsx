@@ -75,7 +75,7 @@ export default function App() {
 
           {/* Trip page */}
           <div className={activeTab === 'trip' ? 'block w-full h-full' : 'hidden'}>
-            <TripPlannerPage />
+            <TripPlannerPage onNavigateToMap={handleNavigateToMap} />
           </div>
         </main>
 
